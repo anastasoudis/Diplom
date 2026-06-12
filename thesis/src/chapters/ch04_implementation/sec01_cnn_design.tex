@@ -1,0 +1,95 @@
+% ── §4.1: Σχεδιασμός του Νευρωνικού Δικτύου ─────────────────
+
+\section{Σχεδιασμός του Νευρωνικού Δικτύου}
+\label{sec:cnn_design}
+
+Η βαθιά εκμάθηση παρέχει τα κατάλληλα εργαλεία για αυτόματη εξαγωγή χαρακτηριστικών από σύνθετα δεδομένα χωρίς χειροκίνητη μηχανική χαρακτηριστικών \cite{Goodfellow2016}. Για τον σκοπό αυτόν σχεδιάστηκε ένα μονοδιάστατο συνελικτικό νευρωνικό δίκτυο (1D-CNN) κατάλληλο για ταξινόμηση δραστηριότητας σε περιβάλλον Federated Learning.
+
+\subsection{Μορφή Εισόδου}
+
+Το σύστημα χρησιμοποιεί τα προ-εξαχθέντα features του dataset AAL, τα οποία αποτελούνται από 561 στατιστικά χαρακτηριστικά χρονικού και συχνοτικού πεδίου ανά παράθυρο~\cite{AAL_UCI2016}. Κάθε δείγμα εισόδου έχει μορφή τανυστή $\mathbf{x} \in \mathbb{R}^{1 \times 561}$, όπου το ένα κανάλι αντιπροσωπεύει την πλήρη ακολουθία feature. Τα 561 features αντιμετωπίζονται ως μονοδιάστατη ακολουθία, επιτρέποντας στις Conv1d λειτουργίες να εντοπίσουν τοπικές συσχετίσεις μεταξύ γειτονικών χαρακτηριστικών.
+
+\subsection{Αρχιτεκτονική}
+
+Το δίκτυο αποτελείται από δύο συνελικτικά blocks ακολουθούμενα από πλήρως συνδεδεμένο κεφαλή ταξινόμησης, όπως απεικονίζεται στο Σχήμα~\ref{fig:cnn_arch} και αναλύεται στον Πίνακα~\ref{tab:cnn_arch}:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=0.55cm,
+  box/.style={rectangle, draw=black!70, rounded corners=3pt,
+              minimum width=2.2cm, minimum height=0.65cm,
+              font=\scriptsize, align=center, fill=#1},
+  arr/.style={-{Stealth[length=4pt]}, thick, gray!70},
+  lbl/.style={font=\tiny, text=gray!80}
+]
+
+% Nodes (top to bottom)
+\node[box=blue!12]   (inp)  {Είσοδος\\$[B,1,561]$};
+\node[box=orange!20, below=of inp]  (c1)   {Conv1d(64)\\$k{=}9$, pad=4};
+\node[box=yellow!30, below=of c1]   (bn1)  {BatchNorm1d(64)\\ReLU};
+\node[box=green!15,  below=of bn1]  (mp1)  {MaxPool1d(2)\\$[B,64,280]$};
+\node[box=orange!20, below=of mp1]  (c2)   {Conv1d(128)\\$k{=}9$, pad=4};
+\node[box=yellow!30, below=of c2]   (bn2)  {BatchNorm1d(128)\\ReLU};
+\node[box=green!15,  below=of bn2]  (mp2)  {MaxPool1d(2)\\$[B,128,140]$};
+\node[box=gray!15,   below=of mp2]  (flat) {Flatten\\$[B,17920]$};
+\node[box=purple!15, below=of flat] (drop) {Dropout(0.5)\\Linear(17920→128)};
+\node[box=red!15,    below=of drop] (out)  {Linear(128→6)\\Softmax};
+
+% Arrows
+\foreach \s/\t in {inp/c1, c1/bn1, bn1/mp1, mp1/c2, c2/bn2, bn2/mp2, mp2/flat, flat/drop, drop/out}
+  \draw[arr] (\s) -- (\t);
+
+% Brace labels for blocks
+\draw[decorate, decoration={brace,amplitude=5pt}, thick, gray!60]
+  ([xshift=1.2cm]c1.north east) -- ([xshift=1.2cm]mp1.south east)
+  node[midway, right=6pt, lbl] {Block 1};
+\draw[decorate, decoration={brace,amplitude=5pt}, thick, gray!60]
+  ([xshift=1.2cm]c2.north east) -- ([xshift=1.2cm]mp2.south east)
+  node[midway, right=6pt, lbl] {Block 2};
+
+\end{tikzpicture}
+\caption{Αρχιτεκτονική 1D-CNN για HAR: δύο συνελικτικά blocks (Conv1d → BN → ReLU → MaxPool) ακολουθούμενα από πλήρως συνδεδεμένη κεφαλή ταξινόμησης.}
+\label{fig:cnn_arch}
+\end{figure}
+
+Το δίκτυο αποτελείται από δύο συνελικτικά blocks ακολουθούμενα από πλήρως συνδεδεμένο κεφαλή ταξινόμησης (Πίνακας~\ref{tab:cnn_arch}):
+
+\begin{table}[h]
+\centering
+\caption{Αρχιτεκτονική HAR-CNN: διαστάσεις τανυστή ανά επίπεδο.}
+\label{tab:cnn_arch}
+\begin{tabular}{llcc}
+\hline
+\textbf{Επίπεδο} & \textbf{Τύπος} & \textbf{Παράμετροι} & \textbf{Έξοδος} \\
+\hline
+Είσοδος & — & — & $[B, 1, 561]$ \\
+Conv1d + BN + ReLU & συνελικτικό & $1{\to}64$, $k{=}9$ & $[B, 64, 561]$ \\
+MaxPool1d(2) & υποδειγματοληψία & — & $[B, 64, 280]$ \\
+Conv1d + BN + ReLU & συνελικτικό & $64{\to}128$, $k{=}9$ & $[B, 128, 280]$ \\
+MaxPool1d(2) & υποδειγματοληψία & — & $[B, 128, 140]$ \\
+Flatten & αναδιαμόρφωση & — & $[B, 17920]$ \\
+Dropout(0.5) + Linear & πλήρης σύνδεση & $17920{\to}128$ & $[B, 128]$ \\
+Linear & έξοδος & $128{\to}6$ & $[B, 6]$ \\
+\hline
+\end{tabular}
+\end{table}
+
+Κάθε συνελικτικό block ακολουθεί τη δομή:
+
+\begin{equation}
+\mathbf{h} = \text{MaxPool}\bigl(\text{ReLU}\bigl(\text{BN}\bigl(\text{Conv1d}(\mathbf{x})\bigr)\bigr)\bigr)
+\label{eq:conv_block}
+\end{equation}
+
+όπου $\text{BN}$ συμβολίζει το Batch Normalization \cite{He2016}. Η κανονικοποίηση batch είναι ιδιαίτερα κρίσιμη σε περιβάλλον FL, καθώς κάθε client έχει ιδιάζουσα κατανομή δεδομένων — το BN σταθεροποιεί τη ροή gradients ανεξάρτητα από τα per-client statistics.
+
+\subsection{Κεφαλή Ταξινόμησης}
+
+Μετά τη δισδιάστατη αναδιαμόρφωση (flatten), η αλληλουχία $[B, 128 \times 140] = [B, 17920]$ οδηγείται σε δύο πλήρως συνδεδεμένα επίπεδα με ενδιάμεσο Dropout($p{=}0.5$). Το Dropout λειτουργεί ως κανονιστής — αποτρέπει την υπερπροσαρμογή (overfitting) σε μικρά client datasets, που είναι συνηθισμένη κατάσταση στο FL \cite{Goodfellow2016}.
+
+Η έξοδος είναι ένα διάνυσμα logits $\hat{\mathbf{y}} \in \mathbb{R}^6$. Κατά την εκπαίδευση, το CrossEntropyLoss υπολογίζει απευθείας απο τα logits χωρίς επιπλέον softmax, για αριθμητική σταθερότητα.
+
+\subsection{Εκπαίδευση}
+
+Ως βελτιστοποιητής χρησιμοποιείται ο Adam \cite{Kingma2015} με $\text{lr} = 10^{-3}$, ο οποίος προσαρμόζει αυτόματα το βήμα μάθησης ανά παράμετρο και συγκλίνει αξιόπιστα χωρίς ευαίσθητη ρύθμιση. Συνολικά, το δίκτυο έχει \textbf{2.369.542 εκπαιδεύσιμες παραμέτρους}. Πλήρης κώδικας της κλάσης \texttt{HAR\_CNN} είναι διαθέσιμος στο αποθετήριο κώδικα της εργασίας.

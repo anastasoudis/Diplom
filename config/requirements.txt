@@ -1,0 +1,30 @@
+# ============================================================
+#  Requirements — FL + HAR + Incentive Mechanism Thesis
+#  Python >= 3.10
+# ============================================================
+
+# ── Deep Learning ────────────────────────────────────────────
+torch>=2.1.0                 # custom FedAvg υλοποιείται απευθείας σε PyTorch (Κεφ. 4)
+
+# ── Data & Preprocessing ─────────────────────────────────────
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.11.0                # Butterworth filter (denoising, Κεφ. 3.3)
+
+# ── ML Metrics ───────────────────────────────────────────────
+scikit-learn>=1.3.0          # accuracy_score, f1_score, train_test_split
+
+# ── Visualization (EDA — Κεφ. 3) ────────────────────────────
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# ── Experiment Tracking ──────────────────────────────────────
+tqdm>=4.65.0                 # progress bars during FL rounds
+
+# ── Notebooks (EDA & Reporting) ──────────────────────────────
+jupyter>=1.0.0
+ipykernel>=6.25.0
+
+# ── Code Quality ─────────────────────────────────────────────
+black>=23.0.0
+flake8>=6.0.0

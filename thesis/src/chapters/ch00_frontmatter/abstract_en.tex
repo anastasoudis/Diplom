@@ -1,0 +1,47 @@
+% ── Abstract (English) ───────────────────────────────────────
+
+\noindent
+The growing demand for intelligent health monitoring in Ambient Assisted Living
+(AAL) environments renders Human Activity Recognition (HAR) a critical research
+domain. Classical centralized machine learning approaches require the transfer
+of sensitive mobile sensor data to central servers, raising serious concerns
+about user privacy.
+
+This thesis proposes a Federated Learning (FL) system for HAR in AAL
+environments, which preserves data locally on each device and transmits only
+model parameter updates to the central server. A fundamental limitation of
+existing FL systems is the absence of mechanisms that incentivize rational users
+to actively participate and contribute high-quality data. To address this
+shortcoming, an incentive mechanism based on Stackelberg Game Theory is designed
+and implemented, in which the central server acts as the leader by determining
+the reward structure, while the clients act as followers optimizing their level
+of effort.
+
+Furthermore, to evaluate the contribution of each participating client, a system
+based on Shapley Values from Cooperative Game Theory is developed, ensuring fair
+reward allocation proportional to each client's marginal contribution to the
+global model's recognition capability. The proposed architecture is implemented
+using a one-dimensional Convolutional Neural Network (1D-CNN) specifically
+designed for sensor time-series analysis, with the federated training protocol
+(FedAvg) implemented from scratch in PyTorch.
+
+Evaluation is conducted on two datasets: the established UCI Human Activity
+Recognition dataset under controlled conditions, and the AAL Smartphone
+Dataset for HAR in AAL under real-world conditions with heterogeneous,
+Non-IID data distributions across 22 user-clients. Initial evaluation confirms
+the system is functional: a federated accuracy of $76.8\%$ versus $84.8\%$ for
+centralized training quantifies the cost of Non-IID heterogeneity. The
+quantitative comparison of contribution metrics (Leave-One-Out versus Shapley)
+for finalizing the incentive mechanism constitutes the next stage of this work.
+
+\vspace{1.5em}
+\noindent
+\textbf{Keywords:}
+Federated Learning,
+Human Activity Recognition (HAR),
+Ambient Assisted Living (AAL),
+Digital Twin,
+Game Theory,
+Stackelberg Game,
+Shapley Values,
+Incentive Mechanisms.

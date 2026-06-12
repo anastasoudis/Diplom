@@ -1,0 +1,489 @@
+% ── §4.3: Ο Μηχανισμός Κινήτρων ─────────────────────────────
+
+\section{Ο Μηχανισμός Κινήτρων}
+\label{sec:incentive_mechanism}
+
+Στην παρούσα ενότητα παρουσιάζεται διεξοδικά ο σχεδιασμός του μηχανισμού κινήτρων που είναι κεντρική
+ερευνητική συνεισφορά της εργασίας. Αρχικά αναλύεται γιατί ένα FL σύστημα δεν λειτουργεί χωρίς τέτοιο
+μηχανισμό (§\ref{subsec:inc_problem}), στη συνέχεια αποσυντίθεται ο χώρος σχεδιασμού σε τρεις ανεξάρτητες
+συνιστώσες (§\ref{subsec:inc_taxonomy}), παρουσιάζονται \textbf{επτά υποψήφιοι μηχανισμοί} με
+αυξανόμενη πολυπλοκότητα (§\ref{subsec:inc_candidates}), τίθενται κριτήρια αξιολόγησης
+(§\ref{subsec:inc_criteria}), διεξάγεται συγκριτική ανάλυση (§\ref{subsec:inc_comparison}) και
+καταλήγουμε σε \textbf{shortlist τριών μηχανισμών} (§\ref{subsec:inc_shortlist}) και στον
+προτεινόμενο υβριδικό μηχανισμό που αξιολογείται πειραματικά στη συνέχεια.
+
+% =============================================================
+\subsection{Το Πρόβλημα και οι Σχεδιαστικοί Στόχοι}
+\label{subsec:inc_problem}
+
+Στο FedAvg~\cite{McMahan2017} κάθε client $i$ ασκεί \emph{προσπάθεια} (effort) $e_i \in [0,1]$ που
+αντιστοιχεί στο ποσοστό των τοπικών επαναλήψεων που πραγματικά εκτελούνται και στην ποιότητα των
+gradients που αποστέλλει στον server. Η προσπάθεια συνεπάγεται \emph{κόστος} $c_i(e_i)$ — μπαταρία,
+CPU, χρόνος — που επωμίζεται μόνος του ο χρήστης. Χωρίς αντιστάθμισμα, η \textbf{κυρίαρχη στρατηγική}
+(\emph{dominant strategy}) κάθε ορθολογικού client είναι $e_i^* = 0$: συμμετέχει συνωμοτικά αλλά δεν
+συνεισφέρει — το γνωστό \textbf{free-rider problem}~\cite{Kang2019, Yu2020}.
+
+Επιπλέον, στο πραγματικό σενάριο AAL οι χρήστες δεν έχουν \emph{ομοιογενή} ποιότητα δεδομένων: όπως
+αποδείχθηκε ποσοτικά στο §\ref{sec:eda} (JSD$^2$ μέσος $0{,}040$, $31{,}8\%$ subjects $> 0{,}05$),
+ορισμένοι έχουν δεδομένα κρίσιμα για τη γενίκευση ενώ άλλοι όχι. Ένας μηχανισμός που τους ανταμείβει
+\emph{ομοιόμορφα} είναι ταυτόχρονα άδικος (αδικεί τους ποιοτικούς συνεισφέροντες) και
+\emph{αναποτελεσματικός} (δεν δημιουργεί κίνητρο για διαφοροποίηση).
+
+\paragraph{Σχεδιαστικοί στόχοι.} Ένας μηχανισμός κινήτρων για το παρόν σύστημα οφείλει ταυτόχρονα να
+ικανοποιεί:
+
+\begin{enumerate}
+    \item \textbf{Ορθολογικότητα συμμετοχής (Individual Rationality, IR):} κάθε client πρέπει να έχει
+    μη-αρνητική αναμενόμενη χρησιμότητα όταν συμμετέχει. Διαφορετικά αποχωρεί.
+    \item \textbf{Συμβατότητα κινήτρων (Incentive Compatibility, IC):} αν ο μηχανισμός απαιτεί ο
+    client να αναφέρει ιδιωτική πληροφορία (π.χ. το κόστος του), η ειλικρινής αναφορά πρέπει να είναι
+    βέλτιστη.
+    \item \textbf{Δικαιοσύνη (Fairness):} η αμοιβή να είναι ανάλογη της \emph{αξίας συνεισφοράς}, όχι
+    μόνο του όγκου δεδομένων.
+    \item \textbf{Υπολογιστική εφικτότητα:} ο μηχανισμός πρέπει να εκτελείται σε λογικό χρόνο για
+    $N = 22$ clients σε CPU.
+    \item \textbf{Ανθεκτικότητα (Robustness):} σε στατιστικό θόρυβο, σε κακόβουλους clients, και σε
+    cold-start περιπτώσεις.
+    \item \textbf{Συμβατότητα με ιδιωτικότητα:} ο server δεν πρέπει να χρειάζεται πρόσβαση σε raw data.
+\end{enumerate}
+
+Όπως θα φανεί, καμία μεμονωμένη επιλογή δεν ικανοποιεί όλους αυτούς τους στόχους ταυτόχρονα — και
+ακριβώς γι' αυτό εξετάζονται πολλαπλοί υποψήφιοι.
+
+% =============================================================
+\subsection{Δομικά Στοιχεία ενός Μηχανισμού}
+\label{subsec:inc_taxonomy}
+
+Ένας μηχανισμός κινήτρων FL αποσυντίθεται φυσικά σε \textbf{τρεις ορθογώνιες συνιστώσες} που μπορούν
+να συνδυαστούν ανεξάρτητα:
+
+\begin{enumerate}[label=(\Alph*)]
+    \item \textbf{Μέτρηση συνεισφοράς} ($\hat{\varphi}_i$): πώς ποσοτικοποιείται η αξία κάθε client.
+    Επιλογές: όγκος δεδομένων, LOO, Shapley, gradient similarity, influence functions, reputation
+    history.
+
+    \item \textbf{Κατανομή αμοιβών} ($r_i$): πώς μετατρέπεται η μέτρηση σε χρηματική / υπολογιστική
+    αμοιβή. Επιλογές: αναλογική, top-$K$ selection, auction-based payment, threshold-based,
+    Shapley payment, contract menu.
+
+    \item \textbf{Στρατηγικό πλαίσιο αλληλεπίδρασης}: πώς διαμορφώνεται η ισορροπία μεταξύ server και
+    clients. Επιλογές: χωρίς strategic interaction (descriptive), Stackelberg single-round, repeated
+    Stackerberg, reverse auction (VCG), contract theory, mean-field game.
+\end{enumerate}
+
+Στον Πίνακα~\ref{tab:inc_components} συνοψίζονται οι επιμέρους επιλογές κάθε συνιστώσας. Κάθε
+\emph{ολοκληρωμένος μηχανισμός} είναι ένας συγκεκριμένος τριάδας~(A,~B,~C). Οι 7 υποψήφιοι που
+αναλύονται παρακάτω είναι αντιπροσωπευτικά μονοπάτια αυτού του χώρου.
+
+\begin{table}[H]
+    \centering
+    \caption{Χώρος σχεδιασμού: επιλογές ανά συνιστώσα μηχανισμού κινήτρων.}
+    \label{tab:inc_components}
+    \footnotesize
+    \begin{tabular}{p{0.27\textwidth} p{0.32\textwidth} p{0.32\textwidth}}
+        \toprule
+        \textbf{(A) Μέτρηση συνεισφοράς} & \textbf{(B) Κατανομή αμοιβών} & \textbf{(C) Στρατηγικό πλαίσιο} \\
+        \midrule
+        Όγκος δεδομένων ($n_i$) & Αναλογική ($\varphi_i / \sum_j \varphi_j$) & Καμία αλληλεπίδραση \\
+        LOO ($v(\mathcal N) - v(\mathcal N \setminus i)$) & Top-$K$ selection & Stackelberg single-round \\
+        Shapley value (exact / MC) & Threshold (κατώφλι ποιότητας) & Repeated Stackelberg \\
+        Gradient cosine similarity & Auction payment (VCG) & Reverse auction \\
+        Influence functions & Shapley payment (efficient) & Contract theory \\
+        Reputation (multi-round) & Contract menu & Mean-field game \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+% =============================================================
+\subsection{Επτά Υποψήφιοι Μηχανισμοί}
+\label{subsec:inc_candidates}
+
+Ακολουθεί η αναλυτική περιγραφή επτά μηχανισμών (\textbf{M1}--\textbf{M7}), κατά αυξάνουσα
+πολυπλοκότητα και θεωρητική φιλοδοξία. Για κάθε έναν δίνονται: (i) η μαθηματική διατύπωση, (ii) ο
+αλγόριθμος υπολογισμού, (iii) τα πλεονεκτήματα/μειονεκτήματα και (iv) η υπολογιστική πολυπλοκότητα.
+
+% ─────────────────────────────────────────────────────────────
+\subsubsection{M1 — Όγκο-Αναλογικός Μηχανισμός (Volume-Proportional)}
+\label{subsubsec:M1_volume}
+
+\textbf{Συνιστώσες:} (A) volume contribution, (B) proportional allocation, (C) καμία στρατηγική αλληλεπίδραση.
+
+\textbf{Διατύπωση.} Η συνεισφορά κάθε client μετράται με τον αριθμό δειγμάτων του:
+\begin{equation}
+    \hat{\varphi}_i^{\,(\text{vol})} = \frac{n_i}{\sum_{j=1}^{N} n_j}
+    \label{eq:M1_contrib}
+\end{equation}
+και η αμοιβή κατανέμεται αναλογικά: $r_i = \hat{\varphi}_i^{\,(\text{vol})} \cdot R$.
+
+\textbf{Πλεονεκτήματα.} Υπολογιστικό κόστος $\mathcal{O}(1)$· δεν απαιτείται καμία επιπλέον FL
+αξιολόγηση. Συμβατό με το κλασικό FedAvg~\cite{McMahan2017} γιατί χρησιμοποιεί ήδη τα ίδια βάρη.
+Διαφανές και άμεσα κατανοητό από τους χρήστες.
+
+\textbf{Μειονεκτήματα.} \emph{Αγνοεί την ποιότητα} δεδομένων: ένας client με 1000 σχεδόν ίδια
+παράθυρα WALKING αμείβεται το ίδιο με έναν με 1000 ποικίλα και ισορροπημένα. Επίσης, \emph{δεν
+αντιμετωπίζει το free-rider} — ένας client μπορεί να στείλει αλλοιωμένα gradients και να αμείβεται.
+
+\textbf{Πολυπλοκότητα.} $\mathcal{O}(1)$ για όλους τους $N$ clients (μόνο μια άθροιση). Καμία FL
+αξιολόγηση.
+
+\textbf{Ρόλος στην εργασία.} Χρησιμοποιείται ως \textbf{baseline} για να εκτιμηθεί πόση επιπλέον
+δικαιοσύνη / απόδοση φέρνουν οι πιο πολύπλοκοι μηχανισμοί.
+
+% ─────────────────────────────────────────────────────────────
+\subsubsection{M2 — LOO + Αναλογική Κατανομή + Stackelberg}
+\label{subsubsec:M2_loo_stackelberg}
+
+\textbf{Συνιστώσες:} (A) LOO contribution, (B) proportional allocation, (C) Stackelberg single-round.
+
+\textbf{Διατύπωση.} Η συνεισφορά εκτιμάται με Leave-One-Out:
+\begin{equation}
+    \hat{\varphi}_i^{\,(\text{LOO})} = \max\big(0,\, v(\mathcal{N}) - v(\mathcal{N} \setminus \{i\})\big)
+    \label{eq:M2_loo}
+\end{equation}
+όπου $v(S)$ η accuracy του global μοντέλου μετά από $E_{\text{LOO}} = 3$ FL γύρους με τους clients
+του $S$. Η αποκοπή στο μηδέν αποκλείει αρνητικές contributions (πιθανώς adversarial).
+
+Η αμοιβή κατανέμεται αναλογικά:
+\begin{equation}
+    r_i = \max\!\left(r_{\min},\; \frac{\hat{\varphi}_i^{\,(\text{LOO})}}{\sum_{j} \hat{\varphi}_j^{\,(\text{LOO})}} \cdot R\right)
+    \label{eq:M2_reward}
+\end{equation}
+με $r_{\min} = 0{,}01$ (ελάχιστη συμμετοχή). Τέλος, κάθε client επιλύει το πρόβλημα Stackelberg
+\begin{equation}
+    \max_{e_i \in [0,1]} \; u_i(e_i) = r_i \cdot e_i - c \cdot e_i^2
+    \implies e_i^* = \frac{r_i}{2c}
+    \label{eq:M2_effort}
+\end{equation}
+με $c = 0{,}5$. Η ισορροπία είναι μοναδική λόγω της κυρτότητας του κόστους~\cite{Sarikaya2020}.
+
+\textbf{Πλεονεκτήματα.} Πιστή ποσοτικοποίηση \emph{οριακής} συνεισφοράς — απαντά άμεσα στην ερώτηση
+"πόσο χάνω αν χάσω αυτόν τον client;". Closed-form λύση Stackerberg → άμεση ερμηνευσιμότητα. Το
+$r_{\min}$ διασφαλίζει IR.
+
+\textbf{Μειονεκτήματα.} (i) Μη-αρθροιστική: $\sum_i \hat{\varphi}_i^{\,(\text{LOO})} \neq v(\mathcal N)$,
+οπότε το αξίωμα efficiency του Shapley παραβιάζεται. (ii) Αγνοεί διαδραστικά effects (clients
+συμπληρωματικοί δεν αναγνωρίζονται). (iii) Single-round: ευάλωτο σε στοχαστικό θόρυβο μιας μεμονωμένης
+LOO αξιολόγησης.
+
+\textbf{Πολυπλοκότητα.} $\mathcal{O}(N+1)$ FL αξιολογήσεις, καθεμία $\mathcal{O}(E_{\text{LOO}} \cdot N
+\cdot E_{\text{local}})$. Για $N=22$, $E_{\text{LOO}}=3$, $E_{\text{local}}=5$: περίπου 7\,200 τοπικές
+περάσεις, $\sim$3 λεπτά σε CPU.
+
+% ─────────────────────────────────────────────────────────────
+\subsubsection{M3 — Monte Carlo Shapley + Αναλογική + Stackelberg}
+\label{subsubsec:M3_shapley_stackelberg}
+
+\textbf{Συνιστώσες:} (A) MC Shapley, (B) proportional allocation, (C) Stackelberg.
+
+\textbf{Διατύπωση.} Η ακριβής Shapley value~\cite{Shapley1953} ορίζεται ως
+\begin{equation}
+    \varphi_i = \sum_{S \subseteq \mathcal N \setminus \{i\}}
+                \frac{|S|!\,(N-|S|-1)!}{N!} \big[v(S \cup \{i\}) - v(S)\big]
+    \label{eq:shapley_exact}
+\end{equation}
+και ικανοποιεί τα τέσσερα αξιώματα δικαιοσύνης (efficiency, symmetry, null player, linearity). Ωστόσο
+απαιτεί $2^N$ αξιολογήσεις — απαγορευτικό για $N=22$ ($\approx 4{,}2 \cdot 10^6$ υποσύνολα).
+
+Η \emph{Monte Carlo} προσέγγιση~\cite{Jia2020} δειγματοληπτεί $M$ τυχαίες μεταθέσεις και υπολογίζει
+οριακές συνεισφορές:
+\begin{equation}
+    \tilde{\varphi}_i = \frac{1}{M} \sum_{m=1}^{M} \big[v(S_i^{(m)} \cup \{i\}) - v(S_i^{(m)})\big]
+    \label{eq:M3_mcshapley}
+\end{equation}
+όπου $S_i^{(m)}$ είναι το σύνολο clients πριν τον $i$ στη μετάθεση $m$. Η σύγκλιση είναι
+$\mathcal{O}(\sigma / \sqrt{M})$. Στη βιβλιογραφία χρησιμοποιούνται τιμές $M$ της τάξης δεκάδων για σταθερή κατάταξη.
+
+Η κατανομή αμοιβών και η Stackelberg ισορροπία είναι ίδιες με τον M2 (εξισώσεις~\ref{eq:M2_reward},
+\ref{eq:M2_effort}).
+
+\textbf{Πλεονεκτήματα.} \emph{Θεωρητικά βέλτιστος} — ο Shapley είναι ο μοναδικός τύπος που ικανοποιεί
+τα τέσσερα αξιώματα δικαιοσύνης ταυτόχρονα (Shapley 1953). Πιάνει διαδραστικά effects: clients που
+είναι χρήσιμοι μόνο σε συνδυασμό αξιολογούνται σωστά.
+
+\textbf{Μειονεκτήματα.} \emph{Υπολογιστικά ακριβός}: $\mathcal{O}(M \cdot N)$ FL αξιολογήσεις. Για
+$M=50$, $N=22$: $\sim$2 ώρες σε CPU. Επιπλέον, η εκτίμηση έχει στατιστική variance — επανεκτέλεση με
+διαφορετικό seed δίνει ελαφρώς διαφορετικές τιμές.
+
+\textbf{Πολυπλοκότητα.} $\mathcal{O}(M \cdot N)$ FL αξιολογήσεις. Στην πράξη, $\sim$120 λεπτά runtime.
+
+% ─────────────────────────────────────────────────────────────
+\subsubsection{M4 — Gradient Cosine Similarity (Online)}
+\label{subsubsec:M4_gradient}
+
+\textbf{Συνιστώσες:} (A) gradient cosine similarity, (B) προσαρμοσμένη γραμμική κατανομή, (C) χωρίς
+ρητή στρατηγική αλληλεπίδραση (descriptive).
+
+\textbf{Διατύπωση.} Η συνεισφορά κάθε client σε έναν γύρο $t$ εκτιμάται από την ευθυγράμμιση του
+τοπικού του gradient με το global update~\cite{Xu2021}:
+\begin{equation}
+    \hat{\varphi}_i^{\,(\text{grad})}(t) =
+    \frac{1}{2}\Big(1 + \frac{\Delta\theta_i^{(t)} \cdot \Delta\theta_{\text{global}}^{(t)}}
+                                  {\|\Delta\theta_i^{(t)}\| \, \|\Delta\theta_{\text{global}}^{(t)}\|}\Big)
+    \label{eq:M4_cossim}
+\end{equation}
+όπου $\Delta\theta_i^{(t)} = \theta_i^{(t)} - \theta_{\text{global}}^{(t-1)}$ το τοπικό update και
+$\Delta\theta_{\text{global}}^{(t)}$ το συνδυασμένο global update. Η κανονικοποίηση στο διάστημα
+$[0,1]$ διευκολύνει την κατανομή.
+
+Η αμοιβή ανά γύρο: $r_i^{(t)} = \hat{\varphi}_i^{\,(\text{grad})}(t) \cdot R / N_{\text{active}}$,
+όπου $N_{\text{active}}$ οι ενεργοί clients του γύρου.
+
+\textbf{Πλεονεκτήματα.} \emph{Online}: η εκτίμηση γίνεται \emph{ταυτόχρονα} με την εκπαίδευση, χωρίς
+επιπλέον FL γύρους. \emph{Pay-per-round}: μπορεί να αμείβει σε κάθε γύρο, ευνοώντας συνεχή συμμετοχή.
+Πιάνει \emph{την κατεύθυνση} και όχι μόνο το μέγεθος της συνεισφοράς — ένας client που "τραβάει" το
+μοντέλο σε αντίθετη κατεύθυνση εντοπίζεται άμεσα.
+
+\textbf{Μειονεκτήματα.} (i) Θορυβώδης σε μεμονωμένο γύρο — απαιτεί smoothing μεταξύ γύρων (π.χ.
+exponential moving average). (ii) Δεν διαφορίζει μεταξύ "θορύβου" και \emph{niche} χρήσιμης
+πληροφορίας: ένας client με σπάνιες αλλά νόμιμες κατηγορίες μπορεί να έχει "κάθετη" κατεύθυνση και να
+υπο-αμείβεται. (iii) Δεν έχει θεωρητικά αξιώματα δικαιοσύνης.
+
+\textbf{Πολυπλοκότητα.} $\mathcal{O}(1)$ \emph{επιπλέον} ανά γύρο — μόνο pairwise dot products. Σχεδόν
+δωρεάν.
+
+% ─────────────────────────────────────────────────────────────
+\subsubsection{M5 — Reputation-Based Multi-Round Mechanism}
+\label{subsubsec:M5_reputation}
+
+\textbf{Συνιστώσες:} (A) reputation history (συνδυασμός LOO + gradient similarity με exponential
+smoothing), (B) reputation-weighted allocation με ρήτρα αποκλεισμού, (C) repeated game.
+
+\textbf{Διατύπωση.} Η reputation κάθε client συσσωρεύεται με exponential smoothing:
+\begin{equation}
+    \rho_i^{(t)} = \beta \cdot \rho_i^{(t-1)} + (1-\beta) \cdot \tilde{\varphi}_i^{(t)}
+    \label{eq:M5_reputation}
+\end{equation}
+με $\beta \in [0{,}8, 0{,}95]$ (μνήμη) και $\tilde{\varphi}_i^{(t)}$ μια στιγμιαία εκτίμηση
+συνεισφοράς (π.χ. M4 ή light-LOO). Η αμοιβή κατανέμεται σε δύο επίπεδα:
+
+\begin{itemize}
+    \item Αν $\rho_i^{(t)} < \rho_{\text{thr}}$ (κατώφλι κακόβουλης συμπεριφοράς), ο client
+    \emph{αποκλείεται} από τον επόμενο γύρο: $r_i^{(t+1)} = 0$.
+    \item Αλλιώς: $r_i^{(t+1)} = \max(r_{\min},\, \rho_i^{(t)} / \sum_j \rho_j^{(t)} \cdot R)$.
+\end{itemize}
+
+\textbf{Πλεονεκτήματα.} \emph{Ανθεκτικός σε στιγμιαίο θόρυβο} — μια κακή εκτίμηση σε έναν γύρο δεν
+καταστρέφει την αμοιβή. \emph{Φιλτράρει adversarial clients}: επανειλημμένα αρνητική συνεισφορά
+οδηγεί σε αποκλεισμό. \emph{Δημιουργεί long-term κίνητρα} — ο client πρέπει να συμπεριφέρεται καλά
+\emph{επί σειρά γύρων} για να συσσωρεύσει reputation.
+
+\textbf{Μειονεκτήματα.} (i) \emph{Cold-start}: στους πρώτους γύρους όλοι έχουν ίδια reputation,
+οπότε ο μηχανισμός εκφυλίζεται προς volume-based. (ii) Επιπλέον υπερπαράμετροι ($\beta$,
+$\rho_{\text{thr}}$) που απαιτούν ρύθμιση. (iii) Ευπάθεια σε \emph{whitewashing} — κακόβουλος
+client που "παίζει καλά" τους πρώτους γύρους και επιτίθεται μετά.
+
+\textbf{Πολυπλοκότητα.} $\mathcal{O}(N)$ ανά γύρο για το EMA + όποια στιγμιαία εκτίμηση επιλεχθεί.
+Συνολικά $\sim$10\,\% επιπλέον πάνω από το baseline.
+
+% ─────────────────────────────────────────────────────────────
+\subsubsection{M6 — Reverse Auction (VCG-Style)}
+\label{subsubsec:M6_auction}
+
+\textbf{Συνιστώσες:} (A) bid από τον client (ιδιωτικό cost type), (B) Vickrey-Clarke-Groves payment,
+(C) reverse auction.
+
+\textbf{Διατύπωση.} Κάθε client αναφέρει στον server το κόστος $b_i$ που απαιτεί για να εκτελέσει
+$E_{\text{local}}$ γύρους εκπαίδευσης. Ο server επιλέγει υποσύνολο $\mathcal{S}^* \subseteq \mathcal N$
+που μεγιστοποιεί την κοινωνική ωφέλεια:
+\begin{equation}
+    \mathcal{S}^* = \arg\max_{\mathcal{S} \subseteq \mathcal{N}}
+                    \Big[v(\mathcal S) - \sum_{i \in \mathcal S} b_i\Big]
+    \label{eq:M6_winners}
+\end{equation}
+
+Το VCG payment για κάθε νικητή $i \in \mathcal{S}^*$ είναι η \emph{εξωτερικότητα} (externality) που
+επιβάλλει στους άλλους:
+\begin{equation}
+    r_i^{\text{VCG}} = \Big[v(\mathcal S^*_{-i}) - \sum_{j \in \mathcal S^*_{-i}} b_j\Big]
+                    - \Big[v(\mathcal S^*) - \sum_{j \in \mathcal S^* \setminus \{i\}} b_j\Big]
+    \label{eq:M6_vcg}
+\end{equation}
+όπου $\mathcal S^*_{-i}$ η βέλτιστη επιλογή \emph{αν δεν υπήρχε} ο client $i$.
+
+\textbf{Πλεονεκτήματα.} \emph{Αποδεδειγμένα incentive-compatible} (αξίωμα Vickrey 1961, Clarke 1971,
+Groves 1973): η ειλικρινής αναφορά $b_i = c_i$ είναι κυρίαρχη στρατηγική. \emph{Μεγιστοποιεί κοινωνική
+ωφέλεια} (efficiency). Φυσικό fit όταν το \emph{cost type} κάθε χρήστη είναι ιδιωτικό και ετερογενές
+(π.χ. κάποιοι έχουν παλαιότερα κινητά με μεγαλύτερο κόστος μπαταρίας).
+
+\textbf{Μειονεκτήματα.} (i) \emph{Υπολογιστικά απαιτητικός}: το πρόβλημα επιλογής νικητών είναι
+NP-hard στη γενική περίπτωση (απαιτεί $v(\mathcal S)$ για κάθε $\mathcal S \subseteq \mathcal N$). Στην
+πράξη χρειάζεται greedy approximation με εγγυήσεις απόδοσης. (ii) \emph{Budget non-balanced}:
+ο server μπορεί να πληρώσει περισσότερα από το συνολικό όφελος (έλλειμμα). (iii) Απαιτεί
+\emph{collusion-resistance} — μηχανισμοί καρτέλ μπορούν να αλλοιώσουν την IC ιδιότητα.
+
+\textbf{Πολυπλοκότητα.} $\mathcal{O}(2^N)$ για ακριβή λύση· $\mathcal{O}(N^2)$ με greedy
+approximation και submodular value function. Για $N=22$: $\sim$8 λεπτά greedy, $\sim$30+ λεπτά
+exact (απαγορευτικό).
+
+% ─────────────────────────────────────────────────────────────
+\subsubsection{M7 — Contract Theory με Ιδιωτικούς Cost Types}
+\label{subsubsec:M7_contract}
+
+\textbf{Συνιστώσες:} (A) προσπάθεια ως μη-παρατηρήσιμη (hidden action), (B) menu of contracts, (C)
+mechanism design με adverse selection.
+
+\textbf{Διατύπωση.} Σε αυτό το πλαίσιο~\cite{Zhan2023}, υποθέτουμε ότι κάθε client έχει \emph{ιδιωτικό
+τύπο κόστους} $\theta_i$ που τραβιέται από κατανομή $F(\theta)$ γνωστή στον server. Το κόστος του
+client είναι $c_i(e_i; \theta_i) = \theta_i \cdot e_i^2 / 2$ — clients υψηλού τύπου έχουν μεγαλύτερο
+κόστος προσπάθειας.
+
+Ο server προσφέρει \emph{menu από contracts} $\{(e_\theta, r_\theta)\}_{\theta \in \Theta}$, ένα ανά
+δυνατό τύπο. Κάθε contract λέει "αν αναφέρεις τύπο $\theta$, εκτέλεσε προσπάθεια $e_\theta$ και πάρε
+αμοιβή $r_\theta$". Με τους περιορισμούς IC και IR:
+\begin{align}
+    \text{IR:} \quad & r_\theta - c(e_\theta; \theta) \geq 0 \quad \forall \theta \\
+    \text{IC:} \quad & r_\theta - c(e_\theta; \theta) \geq r_{\theta'} - c(e_{\theta'}; \theta) \quad \forall \theta, \theta'
+\end{align}
+ο server λύνει:
+\begin{equation}
+    \max_{\{(e_\theta, r_\theta)\}} \; \mathbb{E}_\theta\big[v(e_\theta) - r_\theta\big]
+    \quad \text{υπό IR, IC}
+    \label{eq:M7_contract}
+\end{equation}
+
+Σε διακριτό περιβάλλον τύπων (π.χ. high-cost / low-cost), η λύση δίνεται από κλασικά αποτελέσματα
+mechanism design (Myerson 1981) και έχει closed form.
+
+\textbf{Πλεονεκτήματα.} \emph{Θεωρητικά βέλτιστος} όταν υπάρχει heterogeneity κόστους και ιδιωτικότητα
+τύπων — η περίπτωση του πραγματικού AAL (νεότεροι vs ηλικιωμένοι, νεότερα vs παλαιότερα κινητά).
+Δίνει ταυτόχρονα IR + IC + κοινωνικά αποδοτική κατανομή. \emph{Αυτο-επιλεκτικό}: οι clients επιλέγουν
+μόνοι τους το contract, αποκαλύπτοντας τον τύπο τους.
+
+\textbf{Μειονεκτήματα.} (i) Απαιτεί \emph{γνώση της κατανομής} $F(\theta)$ — στην πράξη πρέπει να
+εκτιμηθεί. (ii) Πιο πολύπλοκη υλοποίηση και debugging σε σχέση με Stackelberg. (iii) Δυσκολότερο να
+γενικευτεί σε πιο σύνθετες δράσεις (πέραν της προσπάθειας).
+
+\textbf{Πολυπλοκότητα.} $\mathcal{O}(|\Theta|^2)$ για διακριτούς τύπους (συνήθως $|\Theta| = 2$--$5$),
+$\mathcal{O}(N \cdot |\Theta|)$ για evaluation σε όλους τους clients. Πρακτικά: $\sim$1--2 λεπτά.
+
+% =============================================================
+\subsection{Κριτήρια Αξιολόγησης}
+\label{subsec:inc_criteria}
+
+Για να συγκρίνουμε τους επτά μηχανισμούς, ορίζονται \textbf{πέντε κριτήρια} που αντιστοιχούν στους
+σχεδιαστικούς στόχους της §\ref{subsec:inc_problem}:
+
+\begin{enumerate}[label=\textbf{C\arabic*.}, leftmargin=2.5em]
+    \item \textbf{Δικαιοσύνη (Fairness)}: ποσοτικοποιείται με τη συσχέτιση Pearson μεταξύ της αμοιβής
+    $r_i$ και μιας \emph{ground-truth} αξίας συνεισφοράς (στα πειράματα: η ακριβής Shapley value σε
+    μικρότερο sub-experiment, ή το $v(\mathcal N) - v(\mathcal N \setminus i)$). Υψηλό $r$ = δίκαιη.
+    \item \textbf{Ανθεκτικότητα σε θόρυβο}: ποσοτικοποιείται από τη σταθερότητα της κατάταξης clients
+    (Spearman $\rho$) ανάμεσα σε ανεξάρτητα runs με διαφορετικά seeds.
+    \item \textbf{Ανθεκτικότητα σε επιθέσεις}: ικανότητα ανίχνευσης ενός εμβολιασμένου adversarial
+    client (label flipping ή gradient attack). Μετράται ως ποσοστιαία πτώση στην αμοιβή του
+    adversarial client σε σχέση με το baseline.
+    \item \textbf{Υπολογιστικό κόστος}: μετράται σε FL αξιολογήσεις (επί $E_{\text{LOO}}$ γύρων κάθε
+    μία) και χρόνο σε CPU. Όριο πρακτικότητας: $\leq 30$ λεπτά συνολικά.
+    \item \textbf{Θεωρητικές εγγυήσεις}: αν ο μηχανισμός ικανοποιεί IR, IC, fairness axioms (Shapley)
+    ή budget balance.
+\end{enumerate}
+
+Η συμβατότητα με ιδιωτικότητα ικανοποιείται από όλους τους μηχανισμούς εξ ορισμού: κανένας δεν απαιτεί
+πρόσβαση σε raw data· μόνο σε weights/scores που ήδη ανταλλάσσονται στο FL.
+
+% =============================================================
+\subsection{Συγκριτική Ανάλυση}
+\label{subsec:inc_comparison}
+
+Ο Πίνακας~\ref{tab:inc_comparison} συνοψίζει την αξιολόγηση των επτά μηχανισμών στα πέντε κριτήρια.
+Οι τιμές χρησιμοποιούν την κλίμακα: $\bigstar$ (αδύναμη/ανύπαρκτη), $\bigstar\bigstar$ (μερική),
+$\bigstar\bigstar\bigstar$ (καλή), $\bigstar\bigstar\bigstar\bigstar$ (ισχυρή). Η αξιολόγηση είναι
+\textbf{ποιοτική}, βασισμένη στις θεωρητικές ιδιότητες κάθε μηχανισμού (πολυπλοκότητα, αξιώματα
+δικαιοσύνης, εγγυήσεις IR/IC) και σε ευρήματα της βιβλιογραφίας· οι αναφερόμενοι χρόνοι εκτέλεσης
+είναι \textbf{ενδεικτικές εκτιμήσεις} που θα επιβεβαιωθούν στην πειραματική φάση.
+
+\begin{table}[H]
+    \centering
+    \caption{Συγκριτική αξιολόγηση επτά υποψήφιων μηχανισμών κινήτρων.}
+    \label{tab:inc_comparison}
+    \footnotesize
+    \begin{tabular}{p{2.8cm} p{1.6cm} p{1.7cm} p{1.7cm} p{1.7cm} p{1.7cm}}
+        \toprule
+        \textbf{Μηχανισμός} & \textbf{C1 Fair} & \textbf{C2 Noise} & \textbf{C3 Attack} & \textbf{C4 Cost} & \textbf{C5 Theory} \\
+        \midrule
+        M1 Volume          & $\bigstar$        & $\bigstar\bigstar\bigstar\bigstar$ & $\bigstar$        & $\bigstar\bigstar\bigstar\bigstar$ & $\bigstar$ \\
+        M2 LOO + Stack.    & $\bigstar\bigstar\bigstar$ & $\bigstar\bigstar$  & $\bigstar\bigstar$ & $\bigstar\bigstar\bigstar$ & $\bigstar\bigstar$ \\
+        M3 Shapley + Stack.& $\bigstar\bigstar\bigstar\bigstar$ & $\bigstar\bigstar$  & $\bigstar\bigstar$ & $\bigstar$  & $\bigstar\bigstar\bigstar\bigstar$ \\
+        M4 Gradient Sim.   & $\bigstar\bigstar$ & $\bigstar\bigstar$  & $\bigstar\bigstar\bigstar$ & $\bigstar\bigstar\bigstar\bigstar$ & $\bigstar$ \\
+        M5 Reputation      & $\bigstar\bigstar\bigstar$ & $\bigstar\bigstar\bigstar\bigstar$ & $\bigstar\bigstar\bigstar\bigstar$ & $\bigstar\bigstar\bigstar$ & $\bigstar\bigstar$ \\
+        M6 Reverse Auction & $\bigstar\bigstar\bigstar$ & $\bigstar\bigstar\bigstar$ & $\bigstar\bigstar$ & $\bigstar$         & $\bigstar\bigstar\bigstar\bigstar$ \\
+        M7 Contract Theory & $\bigstar\bigstar\bigstar$ & $\bigstar\bigstar\bigstar$ & $\bigstar\bigstar$ & $\bigstar\bigstar\bigstar$ & $\bigstar\bigstar\bigstar\bigstar$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\paragraph{Κύριες παρατηρήσεις.}
+
+\begin{itemize}
+    \item Ο \textbf{M1} είναι ξεκάθαρα ανεπαρκής σε δικαιοσύνη/επιθέσεις — υπηρετεί μόνο ως baseline.
+    \item Ο \textbf{M3} (Shapley) έχει τις ισχυρότερες θεωρητικές εγγυήσεις αλλά ασύμφορο runtime
+    ($\sim$2 ώρες) για $N=22$ — γίνεται απαγορευτικός για $N \geq 50$.
+    \item Ο \textbf{M5} (reputation) ξεχωρίζει σε ανθεκτικότητα — και είναι ο μοναδικός που
+    αντιμετωπίζει το adversarial scenario μέσω αποκλεισμού.
+    \item Οι \textbf{M6} και \textbf{M7} έχουν τις ισχυρότερες θεωρητικές ιδιότητες (IC, efficient)
+    αλλά η M6 πάσχει σε κόστος και η M7 απαιτεί υπόθεση κατανομής τύπων.
+    \item Ο \textbf{M2} είναι το \emph{utility middle ground}: αξιοπρεπής σε όλα τα κριτήρια χωρίς
+    να εκπληρώνει κανένα τέλεια.
+\end{itemize}
+
+% =============================================================
+\subsection{Shortlist Επιλογής}
+\label{subsec:inc_shortlist}
+
+Από τους επτά μηχανισμούς, τρεις είναι οι πλέον αξιοσημείωτοι για το σενάριο της παρούσας εργασίας
+(N=22 clients, AAL data, CPU runtime). Παρουσιάζονται με σειρά αυξανόμενης πολυπλοκότητας:
+
+\paragraph{Επιλογή Α — M2: LOO + Proportional + Stackelberg.}
+Πιο ώριμη επιλογή για \emph{γρήγορη απόδειξη της ιδέας}. Συνδυάζει αποδεκτή δικαιοσύνη με κλειστή
+λύση Stackelberg και runtime $\sim$3 λεπτά. Είναι αυτό που \emph{ήδη υλοποιείται} στο
+\texttt{incentive.py} και θα μπορούσε να χρησιμοποιηθεί ως είναι. Ταιριάζει αν ο στόχος είναι "ένα
+λειτουργικό σύστημα με τεκμηριωμένη μαθηματική βάση".
+
+\paragraph{Επιλογή Β — M5: Reputation-Based Multi-Round.}
+Πιο φιλόδοξη επιλογή που \emph{ταιριάζει στο πραγματικό AAL σενάριο}: ηλικιωμένοι χρήστες, μακροχρόνια
+παρακολούθηση, ανάγκη ανίχνευσης σταδιακών αλλαγών συμπεριφοράς (π.χ. τραυματισμός που αλλάζει το
+βάδισμα). Συνδυάζει LOO ή Gradient Similarity ως στιγμιαία εκτίμηση με exponential smoothing και
+ρήτρα αποκλεισμού. Έχει τις καλύτερες ιδιότητες ανθεκτικότητας. Απαιτεί επιπλέον εμπειρική ρύθμιση
+$\beta$ και $\rho_{\text{thr}}$, και νέα πειράματα adversarial scenario.
+
+\paragraph{Επιλογή Γ — M3: MC Shapley + Stackelberg.}
+Επιλογή \emph{μέγιστης θεωρητικής αυστηρότητας}. Δικαιολογεί την πλήρη επίκληση των αξιωμάτων του
+Shapley και επιτρέπει ποσοτική σύγκριση LOO vs Shapley στα πειράματα του Κεφαλαίου~6.
+Το βασικό κόστος είναι runtime $\sim$2 ώρες ανά πείραμα — αλλά εφόσον γίνεται \emph{μία φορά} και τα
+αποτελέσματα αποθηκεύονται, είναι αποδεκτό. Ταιριάζει αν ο στόχος είναι "διπλωματική με ισχυρή
+θεωρητική θεμελίωση και πλούσια πειραματική σύγκριση".
+
+\paragraph{Στάθμιση και υβριδικές προσεγγίσεις.} Η επιλογή σταθμίζει τρεις παράγοντες: (i) το
+διαθέσιμο computational budget, (ii) τη θεωρητική θεμελίωση που απαιτεί η ερευνητική συνεισφορά της
+εργασίας, και (iii) τη δυνατότητα ποσοτικής σύγκρισης των μετρικών συνεισφοράς. Προς τον σκοπό αυτό
+αξιοποιούνται και υβριδικές προσεγγίσεις:
+
+\begin{itemize}
+    \item \textbf{M2 + M5 (LOO + Reputation):} χρησιμοποιεί το LOO ως στιγμιαία μέτρηση και κατασκευάζει
+    reputation επί 20 γύρων FL. Λογικό runtime ($\sim$10 λεπτά) και προσφέρει multi-round
+    ανθεκτικότητα.
+
+    \item \textbf{M3 + M2 (Shapley για theory, LOO για deployment):} το Shapley υπολογίζεται μία φορά
+    offline ως θεωρητικό σημείο αναφοράς, ενώ το φθηνότερο LOO χρησιμοποιείται στο πραγματικό
+    σύστημα. Ο βαθμός συμφωνίας LOO--Shapley αποτελεί \emph{ανοιχτό εμπειρικό ερώτημα} που θα
+    διερευνηθεί στην πειραματική φάση: αν τα δύο μέτρα συμφωνούν, αρκεί το φθηνό LOO·
+    διαφορετικά, το Shapley παραμένει αναγκαίο για την ανάλυση δικαιοσύνης.
+\end{itemize}
+
+\paragraph{Προτεινόμενος μηχανισμός.} Με βάση την παραπάνω ανάλυση, προτείνεται ο υβριδικός συνδυασμός
+\textbf{M3 (offline εξακρίβωση) + M2 (online deployment)}: το MC~Shapley υπολογίζεται \emph{μία φορά}
+offline ως θεωρητικό σημείο αναφοράς για τα LOO scores, ενώ ο μηχανισμός LOO~+~Proportional~+~Stackelberg
+χρησιμοποιείται στο πραγματικό σύστημα. Ο συνδυασμός αυτός επιτυγχάνει ταυτόχρονα θεωρητική
+θεμελίωση και λογικό runtime, και αποτελεί τον μηχανισμό που αξιολογείται πειραματικά στη συνέχεια
+της εργασίας.
+
+% =============================================================
+\subsection{Σύνοψη Ενότητας}
+\label{subsec:inc_summary}
+
+Στην ενότητα αυτή παρουσιάστηκαν επτά υποψήφιοι μηχανισμοί κινήτρων (M1--M7), καλύπτοντας ένα
+ευρύ φάσμα του χώρου σχεδιασμού: από απλή volume-based κατανομή μέχρι contract theory με ιδιωτικούς
+τύπους κόστους. Η συγκριτική ανάλυση κατά πέντε κριτήρια αναδεικνύει τρεις δυνατούς δρόμους
+(Επιλογή Α: M2, Β: M5, Γ: M3), καθώς και υβριδικές παραλλαγές που συνδυάζουν το καλύτερο
+από αυτές. Ως προτεινόμενος μηχανισμός επιλέγεται ο υβριδικός συνδυασμός M3+M2, ο οποίος
+αξιολογείται πειραματικά στο επόμενο μέρος της εργασίας.

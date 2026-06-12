@@ -1,0 +1,44 @@
+% ── §4.2: Ανάπτυξη του Federated Framework ───────────────────
+
+\section{Ανάπτυξη του Federated Framework}
+\label{sec:fl_framework}
+
+Το Federated Learning επιτρέπει σε πολλούς συμμετέχοντες να εκπαιδεύσουν κοινό μοντέλο χωρίς να κοινοποιήσουν τα raw δεδομένα τους~\cite{McMahan2017}. Στο πλαίσιο αυτής της διπλωματικής, κάθε client αντιστοιχεί σε έναν χρήστη του dataset AAL με τα δικά του δεδομένα δραστηριότητας. Το σύστημα περιλαμβάνει 22 clients — έναν ανά subject του training set. Η υλοποίηση βασίστηκε στον κώδικα αναφοράς του N.\ Pavlidis~\cite{PavlidisFL2021}, που παρέχει ένα καλά δοκιμασμένο template FL συστήματος με PyTorch, διασφαλίζοντας ορθή αρχιτεκτονική server-client από την αρχή και αποφεύγοντας κοινά pitfalls στην υλοποίηση κατανεμημένης εκπαίδευσης.
+
+\subsection{Αρχιτεκτονική Server-Client}
+
+Ο server λειτουργεί ως συντονιστής: αρχικοποιεί το global μοντέλο, επιλέγει clients ανά γύρο, συλλέγει τοπικά ενημερωμένα weights και εκτελεί aggregation. Ο client λαμβάνει τα global parameters, εκπαιδεύει τοπικά, και αποστέλλει τα ενημερωμένα weights — ποτέ τα raw δεδομένα.
+
+Η επικοινωνία ανά γύρο $t$ ακολουθεί τα παρακάτω βήματα:
+
+\begin{enumerate}
+    \item \textbf{Επιλογή clients:} Ο server επιλέγει υποσύνολο $S_t \subseteq \mathcal{N}$ με $|S_t| = K$.
+    \item \textbf{Αποστολή global model:} Κάθε client $i \in S_t$ λαμβάνει τα global parameters $\boldsymbol{\theta}^{(t)}$.
+    \item \textbf{Τοπική εκπαίδευση:} Κάθε client εκπαιδεύει για $E$ εποχές:
+    $\boldsymbol{\theta}_i^{(t+1)} \gets \text{LocalTrain}(\boldsymbol{\theta}^{(t)}, \mathcal{D}_i)$.
+    \item \textbf{Αποστολή ενημερωμένων weights:} Κάθε client στέλνει $\boldsymbol{\theta}_i^{(t+1)}$ και $n_i$ στον server.
+    \item \textbf{FedAvg aggregation:} Ο server υπολογίζει το νέο global model:
+\end{enumerate}
+
+\begin{equation}
+\boldsymbol{\theta}^{(t+1)} = \sum_{i \in S_t} \frac{n_i}{N_t} \cdot \boldsymbol{\theta}_i^{(t+1)}
+\tag{\ref{eq:fedavg}}
+\end{equation}
+
+όπου $n_i = |\mathcal{D}_i|$ ο αριθμός δειγμάτων client $i$ και $N_t = \sum_{i \in S_t} n_i$.
+
+\subsection{Τοπική Εκπαίδευση}
+
+Κάθε client εκτελεί $E = 5$ τοπικές εποχές με βελτιστοποιητή Adam ($\text{lr} = 10^{-3}$) και συνάρτηση απώλειας CrossEntropyLoss. Η επιλογή $E = 5$ αποτελεί ισορροπία μεταξύ δύο αντικρουόμενων στόχων: \textit{(α)} αρκετές εποχές ώστε η τοπική εκπαίδευση να είναι αποτελεσματική, και \textit{(β)} λίγες εποχές ώστε να αποφεύγεται το φαινόμενο client drift~\cite{Li2020}, όπου τα τοπικά μοντέλα αποκλίνουν υπερβολικά από το global.
+
+\subsection{Στάθμιση FedAvg}
+
+Η στάθμιση $n_i / N_t$ εξασφαλίζει ότι clients με περισσότερα δεδομένα συνεισφέρουν αναλογικά περισσότερο στο global μοντέλο. Στο συγκεκριμένο σενάριο, οι 22 clients έχουν $n_i \in [130, 280]$ δείγματα (μέσο: $\approx 193$), οπότε η Non-IID επίδραση της ανισομερούς κατανομής είναι μέτρια.
+
+\subsection{Γύροι Επικοινωνίας}
+
+Το σύστημα εκτελεί $T = 20$ γύρους FL. Σε κάθε γύρο συμμετέχουν όλοι οι 22 clients (\texttt{FRACTION\_FIT = 1.0}). Η σύγκλιση του αλγορίθμου αποτιμάται πειραματικά σε επόμενο στάδιο της εργασίας.
+
+\subsection{Non-IID Διαχωρισμός}
+
+Ο φυσικός διαχωρισμός των δεδομένων ανά subject (\texttt{by\_subject}) αποτελεί το πιο ρεαλιστικό σενάριο FL: κάθε smartphone ανήκει σε έναν χρήστη και περιέχει μόνο τα δικά του δεδομένα~\cite{Yang2019}. Αυτό δημιουργεί ετερογένεια κατανομής (Non-IID), η οποία έχει αναλυθεί ποσοτικά στην ενότητα~\ref{sec:eda} μέσω της μέτρησης JSD² (μέσο: 0.040).

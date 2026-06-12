@@ -1,0 +1,118 @@
+% ── §2.5: Θεωρία Παιγνίων και Μηχανισμοί Κινήτρων ───────────
+
+\section{Θεωρία Παιγνίων και Μηχανισμοί Κινήτρων}
+\label{sec:game_theory}
+
+Σε ένα FL σύστημα, η συμμετοχή των clients δεν είναι δεδομένη:
+κάθε client επωμίζεται πραγματικό κόστος (κατανάλωση μπαταρίας,
+υπολογιστικοί πόροι, χρόνος επικοινωνίας) και, απουσία κινήτρων,
+έχει λόγο να αρνηθεί ή να συμμετάσχει με χαμηλή ποιότητα
+(free-riding) \cite{Kang2019}. Η Θεωρία Παιγνίων παρέχει το
+μαθηματικό πλαίσιο για τον σχεδιασμό μηχανισμών κινήτρων που
+εξασφαλίζουν εθελοντική, ποιοτική συμμετοχή \cite{Zhan2023}.
+
+\subsection{Το Παίγνιο Stackelberg}
+\label{subsec:stackelberg}
+
+Το \textbf{Παίγνιο Stackelberg} (Stackelberg Game) είναι ένα
+παίγνιο δύο επιπέδων με ασύμμετρους ρόλους \cite{Sarikaya2020}:
+
+\begin{itemize}
+    \item \textbf{Ηγέτης (Leader):} Ο server του FL, ο οποίος
+    ανακοινώνει πρώτος τη στρατηγική ανταμοιβής — δηλαδή, πόση
+    αμοιβή $r_i$ θα λάβει ο client $i$ για τη συμμετοχή του.
+
+    \item \textbf{Ακόλουθοι (Followers):} Οι clients, οι οποίοι
+    παρατηρούν τη στρατηγική του server και επιλέγουν το επίπεδο
+    προσπάθειας $e_i$ που μεγιστοποιεί τη δική τους ωφελιμότητα.
+\end{itemize}
+
+Η ωφελιμότητα (utility) κάθε client $i$ ορίζεται ως:
+
+\begin{equation}
+    \label{eq:client_utility}
+    u_i = r_i \cdot q_i(e_i) - c_i(e_i)
+\end{equation}
+
+\noindent όπου $r_i$ η αμοιβή που ορίζει ο server, $q_i(e_i)$ η
+ποιότητα της συνεισφοράς (αύξουσα συνάρτηση της προσπάθειας) και
+$c_i(e_i)$ το κόστος προσπάθειας (αύξουσα κυρτή συνάρτηση). Ο
+client επιλέγει $e_i^* = \arg\max_{e_i} u_i$, οδηγώντας σε
+βέλτιστη απόκριση ανάλογη της αμοιβής.
+
+\subsection{Ισορροπία Stackelberg και Βελτιστοποίηση Server}
+\label{subsec:stackelberg_eq}
+
+Γνωρίζοντας ότι οι clients θα ακολουθήσουν τη βέλτιστη απόκρισή
+τους $e_i^*(r_i)$, ο server επιλύει ένα πρόβλημα βελτιστοποίησης
+πρώτου επιπέδου:
+
+\begin{equation}
+    \label{eq:server_utility}
+    \max_{\{r_i\}} \; U_{\text{server}} = V\!\left(\sum_{i} q_i(e_i^*(r_i))\right)
+    - \sum_{i} r_i \cdot q_i(e_i^*(r_i))
+\end{equation}
+
+\noindent όπου $V(\cdot)$ η αξία της συνολικής ποιότητας συμμετοχής
+για τη βελτίωση του καθολικού μοντέλου, μείον το συνολικό κόστος
+αμοιβών. Η λύση του προβλήματος παρέχει τις βέλτιστες αμοιβές
+$\{r_i^*\}$ που μεγιστοποιούν το κέρδος του server ενώ παράλληλα
+εξασφαλίζουν την ενεργό συμμετοχή των clients.
+
+\subsection{Εφαρμογή στο FL Σύστημα}
+\label{subsec:game_theory_fl}
+
+Στην παρούσα εργασία, ο μηχανισμός κινήτρων βασισμένος στο Παίγνιο
+Stackelberg υλοποιείται στον εξυπηρετητή (server) του custom FL πλαισίου
+(Κεφάλαιο~\ref{ch:implementation}). Η ποιότητα συνεισφοράς $q_i$
+υπολογίζεται μέσω της αξιολόγησης Shapley (§~\ref{sec:shapley}),
+δημιουργώντας έναν κλειστό βρόχο: καλύτερη συνεισφορά → υψηλότερη
+αμοιβή → κίνητρο για ποιοτική συμμετοχή \cite{Pavlidis2021,Yu2020}.
+Η δομή του παιγνίου αποτυπώνεται στο Σχήμα~\ref{fig:stackelberg}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1.2cm and 3cm,
+    levelbox/.style={rectangle, rounded corners=5pt, draw=black, thick,
+                     minimum width=3.5cm, minimum height=1cm,
+                     align=center, font=\small},
+    leader/.style={levelbox, fill=blue!15},
+    follower/.style={levelbox, fill=orange!20},
+    arrow/.style={-{Stealth[length=7pt]}, thick},
+    annot/.style={font=\scriptsize, text=gray, align=center}
+]
+
+% Leader
+\node[leader] (server) {\textbf{Server (Leader)}\\[2pt]Ανακοινώνει $\{r_i^*\}$};
+
+% Step 1 label
+\node[annot, right=0.3cm of server] {Βήμα 1: βέλτιστη\\πολιτική ανταμοιβής};
+
+% Clients level
+\node[follower, below left=2cm and 1.8cm of server]  (c1) {Client 1\\[2pt]$e_1^* = r_1/(2c)$};
+\node[follower, below=2cm of server]                  (c2) {Client 2\\[2pt]$e_2^* = r_2/(2c)$};
+\node[follower, below right=2cm and 1.8cm of server]  (cN) {Client $N$\\[2pt]$e_N^* = r_N/(2c)$};
+\node[annot] at ($(c2)!0.5!(cN)+(0.8,0)$) {$\cdots$};
+
+% Arrows server → clients
+\draw[arrow, blue!60] (server) -- node[left,  annot]{$r_1$} (c1);
+\draw[arrow, blue!60] (server) -- node[right, annot]{$r_2$} (c2);
+\draw[arrow, blue!60] (server) -- node[right, annot]{$r_N$} (cN);
+
+% Step 2 label
+\node[annot] at ($(c1)+(0,-0.9)$) {Βήμα 2: βέλτιστη\\προσπάθεια $e_i^*$};
+
+% Outcome box
+\node[leader, below=3.8cm of server, minimum width=5cm] (eq)
+      {\textbf{Stackelberg Ισορροπία}\\[2pt]$u_i = r_i \cdot q_i(e_i^*) - c\,(e_i^*)^2$};
+
+% Return arrows
+\draw[arrow, orange!70!black] (c1) -- node[left,  annot]{$q_1(e_1^*)$} (eq);
+\draw[arrow, orange!70!black] (c2) -- node[right, annot]{$q_2(e_2^*)$} (eq);
+\draw[arrow, orange!70!black] (cN) -- node[right, annot]{$q_N(e_N^*)$} (eq);
+
+\end{tikzpicture}
+\caption{Δομή του Παιγνίου Stackelberg στο FL σύστημα. Ο server (Leader) ανακοινώνει πρώτος τη βέλτιστη πολιτική ανταμοιβών $\{r_i^*\}$. Κάθε client (Follower) αποκρίνεται επιλέγοντας το επίπεδο προσπάθειας $e_i^*$ που μεγιστοποιεί τη δική του ωφελιμότητα. Η ισορροπία είναι μοναδική και αποδοτική~\cite{Sarikaya2020}.}
+\label{fig:stackelberg}
+\end{figure}

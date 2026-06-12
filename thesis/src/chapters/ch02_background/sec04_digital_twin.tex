@@ -1,0 +1,107 @@
+% ── §2.4: Ψηφιακός Δίδυμος Χρήστη (Digital Twin) ────────────
+
+\section{Ψηφιακός Δίδυμος Χρήστη (Digital Twin)}
+\label{sec:digital_twin}
+
+Η έννοια του Ψηφιακού Διδύμου (Digital Twin, DT) ορίζεται ως μια
+δυναμική ψηφιακή αναπαράσταση ενός φυσικού οντότητας ή συστήματος,
+η οποία ενημερώνεται συνεχώς από ροές δεδομένων πραγματικού χρόνου
+\cite{Grieves2014}. Αρχικά αναπτύχθηκε στον χώρο της βιομηχανικής
+παραγωγής, αλλά η εφαρμογή του στη ψηφιακή υγεία και τα AAL
+συστήματα αναδεικνύεται ως πεδίο υψηλής ερευνητικής δραστηριότητας
+\cite{Tao2019}.
+
+\subsection{Στρώματα Αρχιτεκτονικής}
+\label{subsec:dt_layers}
+
+Ένας Ψηφιακός Δίδυμος χρήστη σε AAL περιβάλλον οργανώνεται σε τρία
+εννοιολογικά στρώματα \cite{LiuDT2021}:
+
+\begin{enumerate}
+    \item \textbf{Στρώμα Δεδομένων (Data Layer):} Συλλέγει ακατέργαστα
+    δεδομένα αισθητήρων από το smartphone (επιταχυνσιόμετρο, γυροσκόπιο)
+    και άλλες πηγές (wearables, έξυπνο σπίτι). Αποτελεί την \textit{«αίσθηση»}
+    του διδύμου — το τι συμβαίνει στον φυσικό κόσμο.
+
+    \item \textbf{Στρώμα Μοντέλου (Model Layer):} Εκτελεί επεξεργασία
+    και ταξινόμηση των δεδομένων μέσω μοντέλων μηχανικής μάθησης.
+    Στην παρούσα εργασία, το στρώμα αυτό υλοποιείται από το 1D-CNN
+    μοντέλο HAR που εκπαιδεύεται συνεργατικά μέσω FL.
+
+    \item \textbf{Στρώμα Υπηρεσιών (Service Layer):} Παρέχει ανθρώπινα
+    αναγνώσιμες πληροφορίες — ειδοποιήσεις, τάσεις δραστηριότητας,
+    αναφορές σε φροντιστές — βάσει των εξόδων του στρώματος μοντέλου.
+\end{enumerate}
+
+\subsection{Ψηφιακός Δίδυμος στο FL Σύστημα}
+\label{subsec:dt_in_fl}
+
+Στο πλαίσιο της παρούσας εργασίας, κάθε client του FL συστήματος
+αντιστοιχεί σε έναν χρήστη του AAL περιβάλλοντος. Το τοπικό μοντέλο
+HAR κάθε client λειτουργεί ως \textit{εξατομικευμένος Ψηφιακός Δίδυμος}:
+αποτυπώνει τα ιδιαίτερα κινηματικά μοτίβα του συγκεκριμένου χρήστη
+χωρίς να μεταδίδει ευαίσθητα δεδομένα εκτός της συσκευής.
+
+Η έννοια του Ψηφιακού Διδύμου επιβεβαιώνει τη σχεδιαστική επιλογή
+να διατηρούμε τοπικά δεδομένα στις συσκευές: ο DT κάθε χρήστη
+\textit{ζει} στη συσκευή του, ενώ η γνώση (μοντέλο) μεταδίδεται στον
+server μέσω FL. Αυτή η αρχιτεκτονική εκμεταλλεύεται τα πλεονεκτήματα
+τόσο του FL (προστασία ιδιωτικότητας) όσο και του DT (εξατομίκευση
+και συνεχής ενημέρωση). Η συνολική αρχιτεκτονική DT+FL αποτυπώνεται
+στο Σχήμα~\ref{fig:dt_fl_arch}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1cm and 1.8cm,
+    sensor/.style={rectangle, rounded corners=3pt, draw=gray!70, thick,
+                   fill=gray!10, minimum width=2cm, minimum height=0.7cm,
+                   font=\scriptsize, align=center},
+    dtbox/.style={rectangle, rounded corners=5pt, draw=blue!60, thick,
+                  fill=blue!8, minimum width=3.2cm, minimum height=0.8cm,
+                  font=\small, align=center},
+    srvbox/.style={rectangle, rounded corners=5pt, draw=green!60!black, thick,
+                   fill=green!10, minimum width=3.5cm, minimum height=0.9cm,
+                   font=\small, align=center},
+    arrow/.style={-{Stealth[length=6pt]}, thick},
+    dbarrow/.style={<->, thick, dashed, gray!70}
+]
+
+% Physical world (left column)
+\node[sensor] (phone1) {Smartphone 1\\[2pt](sensors)};
+\node[sensor, below=0.5cm of phone1] (phone2) {Smartphone 2\\[2pt](sensors)};
+\node[font=\scriptsize, below=0.3cm of phone2] (dots) {$\vdots$};
+\node[sensor, below=0.3cm of dots] (phoneN) {Smartphone $N$\\[2pt](sensors)};
+
+% DT nodes (middle column)
+\node[dtbox, right=2.2cm of phone1] (dt1) {DT User 1\\[2pt](local 1D-CNN)};
+\node[dtbox, right=2.2cm of phone2] (dt2) {DT User 2\\[2pt](local 1D-CNN)};
+\node[font=\small, right=2.2cm of dots] (dots2) {$\vdots$};
+\node[dtbox, right=2.2cm of phoneN] (dtN) {DT User $N$\\[2pt](local 1D-CNN)};
+
+% Server (right)
+\node[srvbox, right=2.5cm of dt2] (srv) {FL Server\\[2pt]FedAvg + Incentives};
+
+% Sensor → DT (raw data stays local)
+\draw[dbarrow] (phone1) -- node[above, font=\tiny]{raw data} (dt1);
+\draw[dbarrow] (phone2) -- node[above, font=\tiny]{raw data} (dt2);
+\draw[dbarrow] (phoneN) -- node[above, font=\tiny]{raw data} (dtN);
+
+% DT → Server (only model weights)
+\draw[arrow, blue!60] (dt1.east) -- node[above, font=\tiny]{$\Delta\mathbf{w}_1$} (srv.west|-dt1);
+\draw[arrow, blue!60] (dt2.east) -- node[above, font=\tiny]{$\Delta\mathbf{w}_2$} (srv.west|-dt2);
+\draw[arrow, blue!60] (dtN.east) -- node[above, font=\tiny]{$\Delta\mathbf{w}_N$} (srv.west|-dtN);
+
+% Server → DT (global model)
+\draw[arrow, green!60!black] (srv.west|-dt1) -- +(-0.4,0) -- (dt1.east);
+
+% Labels
+\node[font=\tiny, text=gray, below=0.15cm of dt1] {Τοπική εκπαίδευση};
+\node[font=\tiny, text=red!60!black, above=0.15cm of phone1] {Δεδομένα: τοπικά};
+\node[font=\tiny, text=green!60!black, above right=0.1cm and -0.3cm of srv]
+    {Global model};
+
+\end{tikzpicture}
+\caption{Αρχιτεκτονική DT+FL: κάθε χρήστης AAL αντιστοιχεί σε έναν Ψηφιακό Δίδυμο που αποθηκεύει τοπικά τα ακατέργαστα δεδομένα αισθητήρων και στέλνει στον FL server μόνο ενημερώσεις βαρών μοντέλου ($\Delta\mathbf{w}_i$). Ο server συγκεντρώνει, αξιολογεί τη συνεισφορά και κατανέμει ανταμοιβές~\cite{LiuDT2021, Tao2019}.}
+\label{fig:dt_fl_arch}
+\end{figure}

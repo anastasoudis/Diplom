@@ -1,0 +1,72 @@
+% ── §1.4: Μεθοδολογία ────────────────────────────────────────
+
+\section{Μεθοδολογία}
+\label{sec:methodology}
+
+Για την επίτευξη των ανωτέρω στόχων ακολουθείται η εξής μεθοδολογία:
+
+\textbf{Μοντέλο Αναγνώρισης.} Σχεδιάζεται αρχιτεκτονική 1D-CNN
+αποτελούμενη από επίπεδα συνέλιξης (Conv1d), κανονικοποίησης και
+ολοκληρωτικής σύνδεσης (fully-connected layers), κατάλληλη για είσοδο
+χρονοσειρών αισθητήρων διαστάσεων $[B \times 9 \times 128]$, όπου $B$
+είναι το μέγεθος δέσμης, $9$ οι κανάλια αισθητήρων (επιταχυνσιόμετρο
+και γυροσκόπιο ανά άξονα) και $128$ τα χρονικά βήματα παραθύρου.
+
+\textbf{Πλαίσιο Ομοσπονδιακής Εκπαίδευσης.} Η αρχιτεκτονική
+server-client υλοποιείται εξ ολοκλήρου σε PyTorch,
+με βάση τον αλγόριθμο FedAvg \cite{McMahan2017}. Η κατανομή των
+δεδομένων στους clients γίνεται ανά υποκείμενο (by-subject split), εξασφαλίζοντας
+ρεαλιστική Non-IID κατανομή που αντικατοπτρίζει πραγματικά σενάρια FL.
+
+\textbf{Μηχανισμός Κινήτρων.} Μοντελοποιείται ένα παίγνιο Stackelberg
+δύο επιπέδων: ο server (leader) βελτιστοποιεί την πολιτική ανταμοιβής $r$,
+ενώ οι clients (followers) βελτιστοποιούν την προσπάθειά τους $e_i$
+βάσει της συνάρτησης χρησιμότητας $u_i = r_i \cdot q_i - c_i(e_i)$.
+
+\textbf{Αξιολόγηση Συνεισφοράς.} Υλοποιούνται τρεις μέθοδοι
+αξιολόγησης: (α) μετρικές βάσει όγκου δεδομένων, (β) μέθοδος
+Leave-One-Out (LOO) και (γ) προσέγγιση Shapley Values μέσω ομοιότητας
+gradients \cite{Xu2021}, ισορροπώντας μεταξύ δικαιοσύνης και
+υπολογιστικής αποδοτικότητας.
+
+Το συνολικό πλαίσιο σχεδίασης και συγγραφής ακολουθεί τις οδηγίες της Algorithms \& Privacy Research Unit (Euclid) του Δ.Π.Θ.\ \cite{Efraimidis2024}, διασφαλίζοντας συνέπεια ως προς τη δομή, τις βιβλιογραφικές αναφορές και την επιστημονική αυστηρότητα που απαιτείται σε εργασίες του τομέα ιδιωτικότητας και κατανεμημένης μάθησης. Η συνολική ροή του συστήματος — από τους αισθητήρες ως τη διανομή ανταμοιβών — απεικονίζεται στο Σχήμα~\ref{fig:system_overview}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=0.4cm and 0.7cm,
+  comp/.style={rectangle, draw=black!60, rounded corners=4pt,
+               minimum width=2.4cm, minimum height=0.8cm,
+               font=\scriptsize, align=center, fill=#1},
+  arr/.style={-{Stealth[length=5pt]}, thick},
+  grparr/.style={-{Stealth[length=5pt]}, thick, dashed, gray!60},
+  lbl/.style={font=\tiny, midway, above, text=black!70}
+]
+
+% Row 1: Sensors → DT → FL Server
+\node[comp=cyan!20]    (sens) {Αισθητήρες\\(Accelerometer)};
+\node[comp=blue!15,    right=of sens] (dt)   {Digital Twin\\(1D-CNN, τοπικό)};
+\node[comp=orange!20,  right=of dt]   (srv)  {FL Server\\(FedAvg)};
+
+% Row 2 (below server): Contribution → Incentive → Reward
+\node[comp=green!20,   below=1.2cm of srv]  (cont) {Αξιολόγηση\\Συνεισφοράς (LOO)};
+\node[comp=purple!15,  left=of cont]         (inc)  {Μηχανισμός\\Κινήτρων (Stackelberg)};
+\node[comp=red!15,     left=of inc]          (rew)  {Ανταμοιβές\\$r_i^*$};
+
+% Forward arrows
+\draw[arr] (sens) -- node[lbl]{sensor data} (dt);
+\draw[arr] (dt)   -- node[lbl]{model weights} (srv);
+\draw[arr] (srv)  -- node[lbl,right]{global model} (cont);
+\draw[arr] (cont) -- node[lbl]{$\hat{\varphi}_i$} (inc);
+\draw[arr] (inc)  -- node[lbl]{Stackelberg eq.} (rew);
+
+% Feedback arrow: server → DT (global model back)
+\draw[grparr] (srv.north) -- ++(0,0.5) -| node[font=\tiny,above,pos=0.25]{global model} (dt.north);
+
+% Feedback arrow: rew → DT (incentive loop)
+\draw[grparr] (rew.south) -- ++(0,-0.4) -| node[font=\tiny,below,pos=0.25]{κίνητρο συμμετοχής} (dt.south);
+
+\end{tikzpicture}
+\caption{Συνολική αρχιτεκτονική του συστήματος: αισθητήρες τροφοδοτούν το τοπικό Digital Twin (1D-CNN), τα βάρη μοντέλου αποστέλλονται στον FL Server (FedAvg), η αξιολόγηση συνεισφοράς (LOO/Shapley) τροφοδοτεί τον Stackelberg μηχανισμό κινήτρων, και οι ανταμοιβές επιστρέφουν στους clients ενθαρρύνοντας συνεχή συμμετοχή.}
+\label{fig:system_overview}
+\end{figure}

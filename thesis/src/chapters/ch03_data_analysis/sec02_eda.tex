@@ -1,0 +1,548 @@
+% ── §3.2: Διερευνητική Ανάλυση Δεδομένων (EDA) ───────────────
+
+\section{Διερευνητική Ανάλυση Δεδομένων (EDA)}
+\label{sec:eda}
+
+Η Διερευνητική Ανάλυση Δεδομένων (Exploratory Data Analysis, EDA)
+αποτελεί αναγκαία προεργασία πριν από οποιαδήποτε σχεδιαστική
+απόφαση για το μοντέλο ή τον αγωγό εκπαίδευσης. Η παρούσα ενότητα
+παρουσιάζει μια \textit{δομημένη και πλήρη} EDA που διενεργείται
+ταυτόχρονα σε δύο datasets — UCI HAR (baseline) και AAL
+(κύριο πείραμα) — \textbf{χωρίς αρχική υπόθεση} ότι τα δεδομένα
+θα χρησιμοποιηθούν σε FL σύστημα. Μόνο στο τέλος (§\ref{subsec:fl_implications})
+συνοψίζουμε ποια από τα ευρήματα επηρεάζουν τις επιλογές FL
+σχεδίασης.
+
+Η ανάλυση διαρθρώνεται σε εννέα θεματικούς άξονες, από τους
+βασικούς ελέγχους ακεραιότητας έως τις πιο σύνθετες μεθόδους
+ανίχνευσης outliers και ετερογένειας. Όλα τα γραφήματα και τα
+αριθμητικά αποτελέσματα παράγονται από το ενιαίο script
+\texttt{comprehensive\_eda.py} (διαθέσιμο στο αποθετήριο κώδικα), το οποίο
+τρέχει σε κάθε dataset και εξάγει τα ίδια είδη αναλύσεων για
+άμεση σύγκριση.
+
+% ─── 3.2.1 Data Quality ────────────────────────────────────
+\subsection{Ακεραιότητα και Ποιότητα Δεδομένων}
+\label{subsec:data_quality}
+
+Πριν από κάθε στατιστική ανάλυση, απαιτείται έλεγχος ακεραιότητας
+των δεδομένων: απουσία NaN/Inf τιμών, συνέπεια μεταξύ
+σχήματος (shape) και αναμενόμενων διαστάσεων, ορθό εύρος labels,
+και ποσοστό διπλοεγγραφών. Ο Πίνακας~\ref{tab:data_quality}
+συνοψίζει τους βασικούς ελέγχους.
+
+\begin{table}[H]
+    \centering
+    \caption{Έλεγχος ποιότητας δεδομένων και για τα δύο datasets.}
+    \label{tab:data_quality}
+    \small
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{Μέτρηση} & \textbf{UCI HAR} & \textbf{AAL} \\
+        \midrule
+        Σχήμα train set          & $(7352, 9, 128)$     & $(4252, 1, 561)$ \\
+        Σχήμα test set           & $(2947, 9, 128)$     & $(1492, 1, 561)$ \\
+        Τύπος δεδομένων          & \texttt{float32}     & \texttt{float32} \\
+        NaN / Inf τιμές          & 0 / 0                & 0 / 0 \\
+        Εύρος labels             & $\{1,\dots,6\}$ ΟΚ & $\{1,\dots,6\}$ ΟΚ \\
+        Διπλοεγγραφές (bitwise)  & 0                     & 28 \\
+        Εύρος τιμών (train)      & $[-1{,}00,\, 1{,}00]$ & $[-16{,}75,\, 55{,}48]$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Και τα δύο datasets περνούν τους βασικούς ελέγχους. Οι 28
+πανομοιότυπες εγγραφές στο AAL (0{,}66\% του train) αντιστοιχούν
+πιθανότατα σε πολύ σύντομες ή σχεδόν-σταθερές καταστάσεις (π.χ.
+\textit{Laying} για ηλικιωμένο) και διατηρούνται, αφού αποτελούν
+υπαρκτή πληροφορία και όχι λάθος συλλογής. Αξίζει να σημειωθεί
+η διαφορά στο εύρος τιμών: το UCI HAR παρέχεται κανονικοποιημένο
+στο $[-1, 1]$, ενώ το AAL σε raw μονάδες — θέτοντας άμεση ανάγκη
+για κανονικοποίηση prior στην εκπαίδευση (§\ref{sec:preprocessing}).
+
+% ─── 3.2.2 Class Balance ────────────────────────────────────
+\subsection{Κατανομή Κλάσεων}
+\label{subsec:class_balance}
+
+Η Εικόνα~\ref{fig:class_dist_uci} και η Εικόνα~\ref{fig:class_dist_aal}
+παρουσιάζουν την κατανομή των παραθύρων ανά κλάση για τα δύο
+datasets. Ο Πίνακας~\ref{tab:class_metrics} συνοψίζει τους δείκτες
+ανισορροπίας.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.88\textwidth]{eda_class_distribution_uci_har.pdf}
+    \caption{Κατανομή κλάσεων — UCI HAR Dataset.}
+    \label{fig:class_dist_uci}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.88\textwidth]{eda_class_distribution_aal.pdf}
+    \caption{Κατανομή κλάσεων — AAL Dataset.}
+    \label{fig:class_dist_aal}
+\end{figure}
+
+\begin{table}[H]
+    \centering
+    \caption{Μετρικές ανισορροπίας κλάσεων (training set).}
+    \label{tab:class_metrics}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Μετρική} & \textbf{UCI HAR} & \textbf{AAL} \\
+        \midrule
+        Shannon entropy (max = $\log_2 6 \approx 2{,}585$) & $2{,}572$ & $2{,}572$ \\
+        Κανονικοποιημένη εντροπία                           & $0{,}995$ & $0{,}995$ \\
+        Imbalance ratio ($n_{\max}/n_{\min}$)               & $1{,}43$  & $1{,}51$ \\
+        Gini coefficient                                     & $0{,}830$ & $0{,}830$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Και τα δύο datasets παρουσιάζουν \textbf{ήπια ανισορροπία}
+κλάσεων (IR $\approx 1{,}4$–$1{,}5$, εντροπία $\geq 0{,}995 \times$
+μέγιστη), χωρίς ακραίες ή σπάνιες κλάσεις. Αυτό σημαίνει ότι δεν
+απαιτούνται ειδικές τεχνικές αντιμετώπισης (π.χ. oversampling,
+class weights) για το overall training — ωστόσο, όπως θα δούμε
+στην §\ref{subsec:heterogeneity}, η εικόνα αλλάζει ριζικά όταν
+εξετάζουμε την κατανομή \textit{ανά subject}.
+
+% ─── 3.2.3 Descriptive Statistics ───────────────────────────
+\subsection{Περιγραφικά Στατιστικά ανά Κανάλι}
+\label{subsec:descriptive}
+
+Για το UCI HAR, τα εννέα κανάλια εισόδου (\texttt{body\_acc},
+\texttt{body\_gyro}, \texttt{total\_acc} — X/Y/Z έκαστο) έχουν
+σημαντικά διαφορετικά φυσικά χαρακτηριστικά. Η
+Εικόνα~\ref{fig:boxplot_uci} παρουσιάζει την κατανομή τιμών ανά
+κλάση για τρία αντιπροσωπευτικά κανάλια: \texttt{body\_acc\_x}
+(γραμμική επιτάχυνση σώματος), \texttt{body\_gyro\_x} (γωνιακή
+ταχύτητα), και \texttt{total\_acc\_z} (ολική κάθετη επιτάχυνση,
+περιέχει τη συνιστώσα βαρύτητας).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{eda_descriptive_boxplot_uci_har.pdf}
+    \caption{Boxplots τιμών ανά κλάση δραστηριότητας για τρία
+    αντιπροσωπευτικά κανάλια του UCI HAR (μετά από z-score
+    normalization).}
+    \label{fig:boxplot_uci}
+\end{figure}
+
+Τα boxplots αποκαλύπτουν δύο καθαρά μοτίβα: (α) οι δυναμικές
+κλάσεις (Walking, W-Up, W-Down) εμφανίζουν σημαντικά ευρύτερες
+κατανομές (μεγάλη τυπική απόκλιση — κινητικότητα), (β) οι
+στατικές κλάσεις (Sitting, Standing, Laying) έχουν στενές
+κατανομές αλλά διαφορετικές μέσες τιμές στο κανάλι
+\texttt{total\_acc\_z}, που αντανακλά τον διαφορετικό
+προσανατολισμό της συσκευής. Αυτή η ετερογένεια μεταξύ κλάσεων
+είναι ακριβώς η πληροφορία που ένα ταξινομητής οφείλει να
+εκμεταλλευτεί.
+
+% ─── 3.2.4 Distribution & Normality ─────────────────────────
+\subsection{Κατανομή Τιμών και Έλεγχος Κανονικότητας}
+\label{subsec:normality}
+
+Πολλές κλασικές στατιστικές μέθοδοι (ιδίως z-score outlier
+detection και γραμμικά μοντέλα) υποθέτουν προσεγγιστικά κανονική
+κατανομή. Η Εικόνα~\ref{fig:distrib_uci} συνδυάζει ιστόγραμμα
+και Q-Q plot για τρία κανάλια του UCI HAR, και ο έλεγχος
+Shapiro-Wilk εφαρμόζεται σε υποδείγμα $n=5000$ ανά κανάλι.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{eda_distribution_uci_har.pdf}
+    \caption{Έλεγχος κανονικότητας (UCI HAR): ιστογράμματα
+    (πάνω γραμμή) με εφαρμοσμένη κανονική κατανομή και Q-Q plots
+    (κάτω γραμμή) για τρία αντιπροσωπευτικά κανάλια.}
+    \label{fig:distrib_uci}
+\end{figure}
+
+\textbf{Αποτέλεσμα:} Και τα $9/9$ κανάλια απορρίπτουν την υπόθεση
+κανονικότητας στο επίπεδο $\alpha = 0{,}05$. Τα Q-Q plots εμφανίζουν
+καθαρή απόκλιση στις ουρές, υποδεικνύοντας παρουσία \textit{heavy
+tails} — αναμενόμενο για σήματα επιταχυνσιόμετρου, όπου κινήσεις
+κορύφωσης (στιγμιαίες αποδυναμώσεις ή κραδασμοί) παράγουν σπάνια
+ακραία δείγματα. Πρακτική συνέπεια: μέθοδοι outlier detection που
+βασίζονται σε Gaussian υπόθεση (z-score) είναι \textit{υπερβολικά
+ευαίσθητες} — προτιμούμε robust εναλλακτικές (MAD, Isolation
+Forest, LOF) στην §\ref{subsec:outliers}.
+
+% ─── 3.2.5 Time-Domain Analysis ─────────────────────────────
+\subsection{Χρονική Ανάλυση του Σήματος}
+\label{subsec:time_domain}
+
+Η μορφολογία των σημάτων ανά κλάση είναι κρίσιμη για την
+κατανόηση του προβλήματος αναγνώρισης. Η
+Εικόνα~\ref{fig:signals_uci} παρουσιάζει ένα αντιπροσωπευτικό
+παράθυρο (2{,}56\,s) των τριών αξόνων επιτάχυνσης σώματος για
+κάθε μία από τις έξι κλάσεις.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{eda_signals_per_activity_uci_har.pdf}
+    \caption{Χρονοσειρές τριαξονικής επιτάχυνσης σώματος ανά
+    κλάση — UCI HAR (κανονικοποιημένα δεδομένα, 128 δείγματα
+    @ 50\,Hz).}
+    \label{fig:signals_uci}
+\end{figure}
+
+Η Εικόνα~\ref{fig:acf_uci} παρουσιάζει τη συνάρτηση
+αυτοσυσχέτισης (ACF) ανά κλάση, μέσο όρο πάνω σε δείγμα
+παραθύρων ($n=100$):
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{eda_acf_uci_har.pdf}
+    \caption{Μέση συνάρτηση αυτοσυσχέτισης (ACF) για το κανάλι
+    \texttt{body\_acc\_x} ανά κλάση — UCI HAR.}
+    \label{fig:acf_uci}
+\end{figure}
+
+Παρατηρούνται δύο ομάδες:
+\begin{itemize}
+    \item \textbf{Δυναμικές δραστηριότητες}: σαφής περιοδικότητα
+    στην ACF — πρώτο θετικό peak στα $\approx 0{,}6$–$0{,}7$\,s,
+    που αντιστοιχεί σε ρυθμό βηματισμού $\approx 1{,}5$\,Hz.
+    Αυτή η χρονική δομή επιτρέπει την εκμετάλλευση της
+    περιοδικότητας από τοπικά συνελικτικά φίλτρα.
+
+    \item \textbf{Στατικές δραστηριότητες}: γρήγορα φθίνουσα ACF
+    (noise-dominated signal), σχεδόν καθόλου περιοδικότητα.
+    Η πληροφορία εδώ βρίσκεται στον μέσο προσανατολισμό της
+    συσκευής, όχι στη δυναμική.
+\end{itemize}
+
+% ─── 3.2.6 Frequency Domain ─────────────────────────────────
+\subsection{Ανάλυση στο Πεδίο Συχνοτήτων}
+\label{subsec:frequency}
+
+Η φασματική ανάλυση αποκαλύπτει τη συνεισφορά κάθε συχνότητας
+στην ολική ισχύ του σήματος. Χρησιμοποιούμε τη μέθοδο Welch
+(παράθυρο 64 δειγμάτων) για εκτίμηση της Power Spectral Density.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{eda_psd_uci_har.pdf}
+    \caption{Μέση PSD ανά κλάση (κανάλι \texttt{body\_acc\_x},
+    UCI HAR) — Welch μέθοδος. Οι dominant frequencies εμφανίζονται
+    στην legend.}
+    \label{fig:psd_uci}
+\end{figure}
+
+\begin{table}[H]
+    \centering
+    \caption{Dominant frequencies ανά κλάση (\texttt{body\_acc\_x}).}
+    \label{tab:dominant_freq}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Κλάση} & \textbf{UCI HAR} & \textbf{AAL} \\
+        \midrule
+        Walking         & $1{,}56$\,Hz & $0{,}78$\,Hz \\
+        Walking Upstairs & $1{,}56$\,Hz & $0{,}78$\,Hz \\
+        Walking Downstairs & $1{,}56$\,Hz & $0{,}78$\,Hz \\
+        Sitting         & $0{,}78$\,Hz & $3{,}91$\,Hz \\
+        Standing        & $3{,}13$\,Hz & $3{,}91$\,Hz \\
+        Laying          & $0{,}78$\,Hz & $3{,}13$\,Hz \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Το εύρημα είναι σαφές: στο UCI HAR οι τρεις βηματιστικές κλάσεις
+μοιράζονται την ίδια dominant frequency ($\approx 1{,}5$\,Hz —
+φυσιολογικός ρυθμός βηματισμού), ενώ οι στατικές κατανέμονται
+ασταθώς σε διάφορες συχνότητες θορύβου. Στο AAL παρατηρούμε
+χαμηλότερη dominant frequency για το βηματισμό ($\approx 0{,}78$\,Hz),
+εύρημα συμβατό με την ηλικιακή σύνθεση του dataset (ηλικιωμένοι
+εθελοντές με αργότερη ρυθμό βάδισης). Αυτή η πληροφορία είναι
+\textit{κρίσιμη} για το σχεδιασμό του συνελικτικού δικτύου: τα
+φίλτρα της πρώτης στρώσης πρέπει να έχουν receptive field
+ικανοποιητικό για την καταγραφή ενός πλήρους κύκλου βηματισμού
+($\approx 65$ δείγματα @ 50\,Hz για βάδισμα 0{,}78\,Hz).
+
+% ─── 3.2.7 Channel Correlations ─────────────────────────────
+\subsection{Συσχετίσεις Καναλιών}
+\label{subsec:correlation}
+
+Για το UCI HAR (9 κανάλια), είναι ουσιώδες να ελέγξουμε τον
+βαθμό redundancy μεταξύ καναλιών, καθώς και τη δομή συσχετίσεων
+που αλλάζει μεταξύ δυναμικών και στατικών κλάσεων.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{eda_correlation_uci_har.pdf}
+    \caption{Πίνακες συσχετίσεων Pearson μεταξύ των 9 καναλιών
+    UCI HAR. \textbf{Αριστερά:} όλες οι κλάσεις,
+    \textbf{μέση:} δυναμικές μόνο, \textbf{δεξιά:} στατικές μόνο.}
+    \label{fig:correlation_uci}
+\end{figure}
+
+Οι τρεις πίνακες αποκαλύπτουν ένα ενδιαφέρον φαινόμενο: στις
+στατικές κλάσεις, τα κανάλια \texttt{body\_acc} και
+\texttt{total\_acc} παρουσιάζουν ισχυρή συσχέτιση ($r > 0{,}9$
+σε πολλούς συνδυασμούς), αφού απουσία κίνησης το body
+acceleration συγκλίνει στο μηδέν και το total acceleration
+κυριαρχείται από τη βαρύτητα. Αντιθέτως, στις δυναμικές
+κλάσεις, η body/total διαφοροποίηση μεταφέρει πραγματικά
+διακριτή πληροφορία. Το εύρημα αυτό υποστηρίζει τη διατήρηση
+και των 9 καναλιών ως input: η δομή συσχετίσεων μεταβάλλεται
+μεταξύ κλάσεων, επομένως αποτελεί αξιοποιήσιμο χαρακτηριστικό.
+
+% ─── 3.2.8 Separability ─────────────────────────────────────
+\subsection{Διαχωρισιμότητα Κλάσεων}
+\label{subsec:separability}
+
+Πριν επιλέξουμε ένα σύνθετο μοντέλο (CNN), χρήσιμο είναι να
+ελέγξουμε κατά πόσο οι κλάσεις διαχωρίζονται σε χαμηλότερες
+διαστάσεις. Εξάγουμε 54 στατιστικά χαρακτηριστικά ανά παράθυρο
+(6 ανά κανάλι: mean, std, min, max, energy, dominant freq)
+και εφαρμόζουμε PCA και t-SNE.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{eda_dimred_uci_har.pdf}
+    \caption{Διαχωρισιμότητα κλάσεων — UCI HAR. \textbf{Αριστερά:}
+    scree plot PCA. \textbf{Κέντρο:} scatter στις δύο πρώτες
+    κύριες συνιστώσες. \textbf{Δεξιά:} t-SNE embedding σε
+    υποδείγμα $n=3000$.}
+    \label{fig:dimred_uci}
+\end{figure}
+
+\begin{table}[H]
+    \centering
+    \caption{Μέτρα διαχωρισιμότητας.}
+    \label{tab:separability}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Μέτρο} & \textbf{UCI HAR} & \textbf{AAL} \\
+        \midrule
+        PCA variance top-2 & $64{,}1\%$  & $50{,}8\%$ \\
+        PCA variance top-5 & $77{,}9\%$  & $60{,}0\%$ \\
+        Silhouette (top-2 PCA) & $0{,}150$  & $-0{,}030$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Η PCA σε 2D αποτυπώνει $64\%$ της διακύμανσης στο UCI HAR, και
+το scatter δείχνει σαφή διαχωρισμό δυναμικών από στατικές κλάσεις.
+Ωστόσο, εντός ομάδας (π.χ. τρεις βηματιστικές) οι κλάσεις
+επικαλύπτονται σε μεγάλο βαθμό — γεγονός που επιβεβαιώνεται από
+τη χαμηλή τιμή silhouette ($0{,}15$). Για το AAL, η silhouette
+είναι \textbf{αρνητική} (εκεί που πολλά σημεία είναι πιο κοντά σε
+άλλη κλάση από τη δική τους), υποδεικνύοντας ότι απλά στατιστικά
+features δεν αρκούν — απαιτείται μη-γραμμικός learner. Το
+t-SNE, που αποκαλύπτει τοπικές δομές, δείχνει καθαρότερες
+νησίδες ανά κλάση, ενισχύοντας την υπόθεση ότι ένα βαθύ
+μοντέλο μπορεί να μάθει τις σχετικές μη γραμμικές απεικονίσεις.
+
+% ─── 3.2.9 Outlier Detection ────────────────────────────────
+\subsection{Ανίχνευση Outliers — Πολλαπλές Μέθοδοι}
+\label{subsec:outliers}
+
+Η ανίχνευση ακραίων τιμών (outliers) σε δεδομένα αισθητήρων
+εξυπηρετεί δύο σκοπούς: (α) εντοπισμό σφαλμάτων συλλογής (sensor
+glitches, mislabeled windows), και (β) αξιολόγηση της
+ομοιογένειας του dataset. Δεδομένου ότι καμία μεμονωμένη μέθοδος
+δεν καλύπτει όλα τα είδη outliers, εφαρμόζουμε \textbf{έξι
+ανεξάρτητες μεθόδους} και αναλύουμε την συμφωνία τους:
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=0pt]
+    \item \textbf{IQR}: feature εκτός $Q_1 - 1{,}5 \cdot \text{IQR}$,
+    $Q_3 + 1{,}5 \cdot \text{IQR}$.
+    \item \textbf{Z-score} $> 3$: κλασικό, υποθέτει κανονικότητα.
+    \item \textbf{Modified Z-score (MAD)} $> 3{,}5$: robust σε
+    heavy tails \cite{Iglewicz1993}.
+    \item \textbf{Isolation Forest} \cite{Liu2008}: isolation depth
+    σε random trees, contamination $=0{,}05$.
+    \item \textbf{Local Outlier Factor (LOF)} \cite{Breunig2000}:
+    density-based, $k=20$.
+    \item \textbf{Mahalanobis distance}: πολυμεταβλητή απόσταση
+    με κατώφλι $\chi^2_{0{,}99}$.
+\end{enumerate}
+
+Όλες οι μέθοδοι εφαρμόζονται στον ίδιο χώρο
+χαρακτηριστικών (54-διάστατος στο UCI, 561-διάστατος στο AAL).
+Ένα παράθυρο θεωρείται outlier από univariate μέθοδο όταν
+$\geq 10\%$ των features του βγαίνουν εκτός — αποφεύγουμε
+το τετριμμένο «any-feature» που παράγει ψευδώς μεγάλο ποσοστό
+outliers σε υψηλή διάσταση.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{eda_outliers_uci_har.pdf}
+    \caption{Outlier detection στο UCI HAR.
+    \textbf{Αριστερά:} ποσοστό flagged παραθύρων ανά μέθοδο.
+    \textbf{Κέντρο:} Jaccard similarity μεταξύ μεθόδων.
+    \textbf{Δεξιά:} κατανομή ψήφων (consensus όταν $\geq 2$ μέθοδοι
+    συμφωνούν).}
+    \label{fig:outliers_uci}
+\end{figure}
+
+\begin{table}[H]
+    \centering
+    \caption{Ποσοστά outliers ανά μέθοδο και για τα δύο datasets.}
+    \label{tab:outlier_rates}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Μέθοδος} & \textbf{UCI HAR} & \textbf{AAL} \\
+        \midrule
+        IQR                         & $28{,}4\%$ & $11{,}9\%$ \\
+        Z-score $>3$                & $\phantom{0}2{,}2\%$ & $\phantom{0}1{,}9\%$ \\
+        Modified Z (MAD) $>3{,}5$   & $59{,}5\%$ & $42{,}0\%$ \\
+        Isolation Forest (c=0{,}05) & $\phantom{0}5{,}0\%$ & $\phantom{0}5{,}0\%$ \\
+        LOF ($k=20$, c=0{,}05)       & $\phantom{0}5{,}0\%$ & $\phantom{0}5{,}0\%$ \\
+        Mahalanobis ($\chi^2_{0{,}99}$) & $11{,}8\%$ & $12{,}3\%$ \\
+        \midrule
+        \textbf{Consensus ($\geq 2$ μέθοδοι)} & $\mathbf{29{,}3\%}$ & $\mathbf{14{,}7\%}$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\textbf{Κριτική ανάγνωση των αποτελεσμάτων:} το Modified Z-score
+φλαγάρει πολύ υψηλό ποσοστό ($42$–$60\%$) επειδή σε ήδη
+κανονικοποιημένα δεδομένα το MAD είναι πολύ μικρό, καθιστώντας
+ακόμη και μικρές αποκλίσεις «ακραίες». Αντίθετα, οι τρεις
+principled πολυμεταβλητές μέθοδοι (Isolation Forest, LOF,
+Mahalanobis) συγκλίνουν σταθερά σε $\approx 5$–$12\%$ σε
+\textit{και τα δύο} datasets — ένδειξη ότι εντοπίζουν το ίδιο
+υποσύνολο πραγματικά ανώμαλων παραθύρων. Η Jaccard ανάλυση
+(κέντρο της Εικόνας~\ref{fig:outliers_uci}) επιβεβαιώνει ισχυρή
+συμφωνία ($J > 0{,}5$) μεταξύ αυτών των τριών μεθόδων και φτωχή
+συμφωνία με τις naive univariate μεθόδους.
+
+\textbf{Απόφαση:} χρησιμοποιούμε ως κριτήριο τη \textbf{robust
+τομή} των τριών πολυμεταβλητών μεθόδων (Isolation Forest
+$\cap$ LOF $\cap$ Mahalanobis). Τα $\sim 3$–$4\%$ παράθυρα που
+κάθε μέθοδος σημειώνει και οι τρεις ταυτόχρονα αντιστοιχούν σε
+πραγματικά sensor glitches και αφαιρούνται στο preprocessing.
+Η αφαίρεσή τους έχει αμελητέα επίδραση στο ολικό μέγεθος
+dataset ($-3\%$) αλλά μειώνει τη διακύμανση του training loss.
+
+% ─── 3.2.10 Subject Heterogeneity ───────────────────────────
+\subsection{Ετερογένεια Χρηστών}
+\label{subsec:heterogeneity}
+
+Η τελευταία και πιο ενδιαφέρουσα διάσταση της EDA αφορά την
+ετερογένεια μεταξύ χρηστών (subject-level heterogeneity). Δύο
+συμπληρωματικά μέτρα εφαρμόζονται: (α) η τετραγωνική απόκλιση
+Jensen–Shannon ($\text{JSD}^2$) μεταξύ της \textit{κατανομής
+κλάσεων} κάθε subject $p_i$ και της καθολικής $p_{\text{global}}$,
+και (β) η \textbf{μέση απόσταση Wasserstein} μεταξύ της
+\textit{κατανομής features} κάθε subject και της συνολικής,
+υπολογισμένη ανά κανάλι.
+
+\begin{equation}
+    \label{eq:jsd}
+    \text{JSD}^2(p_i \,\|\, p_{\text{global}}) =
+    \frac{1}{2} D_{\text{KL}}(p_i \| M) +
+    \frac{1}{2} D_{\text{KL}}(p_{\text{global}} \| M),
+    \quad M = \frac{p_i + p_{\text{global}}}{2}
+\end{equation}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{eda_subject_heterogeneity_uci_har.pdf}
+    \caption{Ετερογένεια χρηστών — UCI HAR (21 subjects).
+    \textbf{Αριστερά:} heatmap κατανομής κλάσεων ανά subject.
+    \textbf{Κέντρο:} $\text{JSD}^2$ labels ανά subject.
+    \textbf{Δεξιά:} μέση Wasserstein features ανά subject.}
+    \label{fig:hetero_uci}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{eda_subject_heterogeneity_aal.pdf}
+    \caption{Ετερογένεια χρηστών — AAL (22 subjects).
+    Οι ίδιες τρεις όψεις όπως στην Εικόνα~\ref{fig:hetero_uci}.}
+    \label{fig:hetero_aal}
+\end{figure}
+
+\begin{table}[H]
+    \centering
+    \caption{Σύγκριση ετερογένειας μεταξύ UCI HAR και AAL.}
+    \label{tab:heterogeneity}
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Μετρική} & \textbf{UCI HAR} & \textbf{AAL} \\
+        \midrule
+        Αριθμός subjects          & $21$        & $22$ \\
+        $\overline{\text{JSD}^2}$ & $0{,}0019$  & $0{,}0397$ \\
+        $\text{JSD}^2_{\max}$     & $0{,}0104$  & $0{,}1466$ \\
+        \% subjects με $\text{JSD}^2 > 0{,}05$ & $0\%$ & $31{,}8\%$ \\
+        Μέση Wasserstein (features) & $0{,}106$  & $0{,}120$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Το εύρημα είναι ποσοτικά εντυπωσιακό: το UCI HAR παρουσιάζει
+\textbf{σχεδόν IID} κατανομή labels μεταξύ subjects (όλοι οι
+εθελοντές εκτέλεσαν το ίδιο πρωτόκολλο σε εργαστηριακό
+περιβάλλον), ενώ το AAL εμφανίζει $\text{JSD}^2$ μέσο
+\textbf{$21\times$ μεγαλύτερο}, με σχεδόν ένα τρίτο των subjects
+($32\%$) να απέχει σημαντικά από την καθολική κατανομή. Η
+Wasserstein απόσταση features διαφέρει λιγότερο ($0{,}106$ vs
+$0{,}120$), υποδεικνύοντας ότι η κύρια πηγή ετερογένειας στο AAL
+είναι η \textit{κατανομή δραστηριοτήτων} (κάθε ηλικιωμένος
+δαπανά διαφορετικό χρόνο σε στατικές vs δυναμικές καταστάσεις)
+και δευτερευόντως τα φυσιολογικά κινηματικά μοτίβα.
+
+% ─── 3.2.11 FL Implications ─────────────────────────────────
+\subsection{Συμπεράσματα για τη Σχεδίαση FL}
+\label{subsec:fl_implications}
+
+Η EDA διεξήχθη ανεξάρτητα από την τελική χρήση· τώρα συνοψίζουμε
+ποια από τα ευρήματα επηρεάζουν τις επιλογές σχεδίασης του FL
+συστήματος. Ο Πίνακας~\ref{tab:eda_to_fl} συνδέει κάθε εύρημα
+με τη συγκεκριμένη συνέπεια.
+
+\begin{table}[H]
+    \centering
+    \caption{Αντιστοίχιση ευρημάτων EDA σε επιλογές σχεδίασης FL.}
+    \label{tab:eda_to_fl}
+    \small
+    \begin{tabular}{p{4.5cm} p{8.3cm}}
+        \toprule
+        \textbf{Εύρημα EDA} & \textbf{Συνέπεια για FL} \\
+        \midrule
+        Ήπια ολική ανισορροπία κλάσεων (IR $\approx 1{,}4$–$1{,}5$)
+          & Δεν απαιτούνται global class weights· αρκεί η στάθμιση
+            \texttt{FedAvg} ανά subject. \\
+        Non-Gaussian κατανομές τιμών
+          & Προτίμηση robust outlier μεθόδων (IForest/LOF) έναντι
+            z-score. \\
+        Δύο μορφολογικές ομάδες (δυναμικές / στατικές) με καθαρή
+        διαχωριστική διαφορά στο PSD
+          & Το 1D-CNN με receptive field ικανό να καλύπτει έναν κύκλο
+            βηματισμού ($\sim 65$ δείγματα @ 0{,}78\,Hz) είναι επαρκής
+            αρχιτεκτονική. \\
+        Χαμηλή silhouette στο 2D PCA (ειδικά στο AAL)
+          & Επιβεβαιώνει την ανάγκη για μη-γραμμικό learner αντί
+            για απλό γραμμικό ταξινομητή. \\
+        Consensus outliers $\approx 3$–$5\%$ (robust τομή)
+          & Αφαιρούνται \textit{στο sample-level} πριν τη διανομή
+            δεδομένων στους clients — εξασφαλίζει σταθερό local
+            training. \\
+        \textbf{Subject-level heterogeneity} ($\text{JSD}^2_{AAL}
+        = 21\times \text{JSD}^2_{UCI}$)
+          & \textbf{Διατηρείται στο ακέραιο} — αποτελεί το βασικό
+            φαινόμενο που ο FL μηχανισμός κινήτρων πρέπει να
+            αναγνωρίσει και να ανταμείψει. Subjects S13, S14 του AAL
+            λειτουργούν ως case study (§5). \\
+        Redundancy στα κανάλια για στατικές κλάσεις
+          & Κρατάμε και τα 9 κανάλια — η διαφορική correlation
+            structure μεταξύ κλάσεων είναι αξιοποιήσιμη από το
+            BatchNorm/ReLU stack. \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\textbf{Συνολικό συμπέρασμα:} η EDA αιτιολογεί τη χρήση του AAL
+AAL ως κύριο πειραματικό dataset, όχι ως παράπλευρη επιλογή.
+Το UCI HAR, σχεδόν IID μεταξύ subjects, θα δώσει τεχνητά υψηλή
+FL απόδοση ανεξάρτητα από τον μηχανισμό συνεισφοράς — ακριβώς
+γιατί δεν υπάρχει ετερογένεια για να ανταμειφθεί. Το AAL,
+αντίθετα, προσφέρει το πραγματικά ενδιαφέρον σενάριο όπου οι
+μηχανισμοί Shapley/LOO μπορούν να διαφοροποιήσουν την αξία των
+clients. Αυτό το αποτέλεσμα — αν και όχι προφανές εκ των
+προτέρων — αναδεικνύεται \textbf{μόνο} μέσω αυστηρής
+σύγκρισης των δύο datasets στο πλαίσιο της παρούσας ανάλυσης.

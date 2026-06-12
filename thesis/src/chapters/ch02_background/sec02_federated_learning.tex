@@ -1,0 +1,153 @@
+% ── §2.2: Ομοσπονδιακή Μάθηση (Federated Learning) ──────────
+
+\section{Ομοσπονδιακή Μάθηση (Federated Learning)}
+\label{sec:federated_learning}
+
+Η Ομοσπονδιακή Μάθηση (Federated Learning, FL) είναι ένα παράδειγμα
+κατανεμημένης μηχανικής μάθησης στο οποίο ένα καθολικό μοντέλο
+εκπαιδεύεται από ένα πλήθος $n$ συμμετεχόντων (clients) χωρίς τα
+ακατέργαστα δεδομένα τους να εγκαταλείπουν ποτέ τη συσκευή τους
+\cite{McMahan2017}. Αντί για δεδομένα, μεταδίδονται μόνο ενημερώσεις
+μοντέλου (model updates) στον κεντρικό συντονιστή (server), ο οποίος
+τις συνθέτει σε ένα βελτιωμένο καθολικό μοντέλο.
+
+\subsection{Αρχιτεκτονική Server-Client}
+\label{subsec:fl_architecture}
+
+Το τυπικό FL σύστημα αποτελείται από έναν \textbf{server} και $n$
+\textbf{clients}. Ο server αρχικοποιεί ένα καθολικό μοντέλο
+$\mathbf{w}^{(0)}$ και ορίζει τη στρατηγική επιλογής clients ανά γύρο
+επικοινωνίας. Κάθε client $i$ διατηρεί τοπικό σύνολο δεδομένων
+$\mathcal{D}_i$ με $n_i = |\mathcal{D}_i|$ δείγματα. Η κατανεμημένη
+βελτιστοποίηση στοχεύει στην ελαχιστοποίηση της σταθμισμένης συνολικής
+απώλειας:
+
+\begin{equation}
+    \label{eq:fl_objective}
+    \min_{\mathbf{w}} \; F(\mathbf{w}) = \sum_{i=1}^{n}
+    \frac{n_i}{N} \, F_i(\mathbf{w}), \quad N = \sum_{i=1}^{n} n_i
+\end{equation}
+
+\noindent όπου $F_i(\mathbf{w}) = \frac{1}{n_i}\sum_{(\mathbf{x},y)
+\in \mathcal{D}_i} \ell(\mathbf{w}; \mathbf{x}, y)$ είναι η τοπική
+απώλεια του client $i$ και $\ell(\cdot)$ η συνάρτηση κόστους
+(cross-entropy για ταξινόμηση).
+
+\subsection{Ο Αλγόριθμος FedAvg}
+\label{subsec:fedavg}
+
+Ο αλγόριθμος Federated Averaging (FedAvg), που εισήχθη από τους McMahan
+et al.\ \cite{McMahan2017}, αποτελεί τον de facto αλγόριθμο αναφοράς
+του FL. Επαναλαμβάνει τα ακόλουθα βήματα για $R$ γύρους επικοινωνίας:
+
+\begin{enumerate}
+    \item \textbf{Κοινοποίηση:} Ο server αποστέλλει τις τρέχουσες
+    παραμέτρους $\mathbf{w}^{(r)}$ στο υποσύνολο $\mathcal{S}^{(r)}$
+    επιλεγμένων clients (με $|\mathcal{S}^{(r)}| = m \leq n$).
+
+    \item \textbf{Τοπική εκπαίδευση:} Κάθε client $i \in \mathcal{S}^{(r)}$
+    εκτελεί $E$ εποχές τοπικής βελτιστοποίησης (SGD ή Adam) στα
+    δεδομένα του, παράγοντας ενημερωμένες παραμέτρους
+    $\mathbf{w}_i^{(r+1)}$.
+
+    \item \textbf{Συνάθροιση:} Ο server συνθέτει τις ενημερώσεις
+    στάθμισε με βάση το μέγεθος των τοπικών συνόλων:
+    \begin{equation}
+        \label{eq:fedavg}
+        \mathbf{w}^{(r+1)} = \sum_{i \in \mathcal{S}^{(r)}}
+        \frac{n_i}{\sum_{j \in \mathcal{S}^{(r)}} n_j}
+        \mathbf{w}_i^{(r+1)}
+    \end{equation}
+\end{enumerate}
+
+Η θεωρητική ανάλυση σύγκλισης του FedAvg υπό Non-IID κατανομές
+παρουσιάζεται από τους Li et al.\ \cite{Li2020}, οι οποίοι αποδεικνύουν
+ότι η ετερογένεια δεδομένων μπορεί να επιβραδύνει σημαντικά τη σύγκλιση
+λόγω του φαινομένου \textit{client drift}. Το Σχήμα~\ref{fig:fl_round}
+απεικονίζει σχηματικά τον κύκλο ενός γύρου FL.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm and 2.2cm,
+    box/.style={rectangle, rounded corners=4pt, draw=black, thick,
+                minimum width=2.8cm, minimum height=0.9cm,
+                align=center, font=\small},
+    server/.style={box, fill=blue!15},
+    client/.style={box, fill=orange!20},
+    arrow/.style={-{Stealth[length=6pt]}, thick},
+    dasharrow/.style={-{Stealth[length=6pt]}, thick, dashed}
+]
+
+% Server
+\node[server] (server) {FL Server\\[2pt]$\mathbf{w}^{(r)}$};
+
+% Clients
+\node[client, below left=1.8cm and 2.5cm of server]  (c1) {Client 1\\[2pt]$\mathcal{D}_1$};
+\node[client, below=1.8cm of server]                  (c2) {Client 2\\[2pt]$\mathcal{D}_2$};
+\node[client, below right=1.8cm and 2.5cm of server]  (c3) {Client $N$\\[2pt]$\mathcal{D}_N$};
+
+% Dots between clients
+\node[font=\Large] at ($(c2)!0.5!(c3) + (0.6,0)$) {$\cdots$};
+
+% Broadcast arrows (server → clients)
+\draw[arrow, blue!60] (server) -- node[left,  font=\scriptsize]{$\mathbf{w}^{(r)}$} (c1);
+\draw[arrow, blue!60] (server) -- node[right, font=\scriptsize]{$\mathbf{w}^{(r)}$} (c2);
+\draw[arrow, blue!60] (server) -- node[right, font=\scriptsize]{$\mathbf{w}^{(r)}$} (c3);
+
+% Local training labels
+\node[font=\scriptsize, text=gray] at ($(c1)+(0,-0.7)$) {$E$ τοπικές εποχές};
+\node[font=\scriptsize, text=gray] at ($(c2)+(0,-0.7)$) {$E$ τοπικές εποχές};
+\node[font=\scriptsize, text=gray] at ($(c3)+(0,-0.7)$) {$E$ τοπικές εποχές};
+
+% Aggregation node
+\node[server, below=3.8cm of server] (agg) {FedAvg\\[2pt]Aggregation};
+
+% Upload arrows (clients → aggregation)
+\draw[arrow, orange!70!black] (c1) -- node[left,  font=\scriptsize]{$\mathbf{w}_1^{(r+1)}$} (agg);
+\draw[arrow, orange!70!black] (c2) -- node[right, font=\scriptsize]{$\mathbf{w}_2^{(r+1)}$} (agg);
+\draw[arrow, orange!70!black] (c3) -- node[right, font=\scriptsize]{$\mathbf{w}_N^{(r+1)}$} (agg);
+
+% Loop arrow
+\draw[dasharrow, green!50!black, bend right=50]
+      (agg.east) to node[right, align=left, font=\scriptsize]{$\mathbf{w}^{(r+1)}$\\[1pt]επόμενος γύρος} (server.east);
+
+\end{tikzpicture}
+\caption{Κύκλος ενός FL γύρου (FedAvg): ο server εκπέμπει τις τρέχουσες παραμέτρους, κάθε client εκτελεί $E$ τοπικές εποχές χωρίς κοινοποίηση δεδομένων, και τα ενημερωμένα βάρη συνδυάζονται σταθμισμένα για το επόμενο global μοντέλο.}
+\label{fig:fl_round}
+\end{figure}
+
+\subsection{Προκλήσεις του Federated Learning}
+\label{subsec:fl_challenges}
+
+Η ολοκληρωμένη ανασκόπηση των Kairouz et al.\ \cite{Kairouz2021}
+κατατάσσει τις κύριες προκλήσεις του FL σε τρεις κατηγορίες:
+
+\begin{itemize}
+    \item \textbf{Ετερογένεια δεδομένων (Non-IID):} Τα δεδομένα κάθε
+    client ακολουθούν διαφορετική κατανομή, καθώς αντικατοπτρίζουν
+    τις ατομικές συνήθειες και κινητικά μοτίβα κάθε χρήστη. Αυτό
+    αποκλίνει από τη βέλτιστη υπόθεση IID (Independent and Identically
+    Distributed) της στατιστικής θεωρίας \cite{Li2020}.
+
+    \item \textbf{Κόστος επικοινωνίας:} Κάθε γύρος απαιτεί μετάδοση
+    ολόκληρου του μοντέλου (ή των παραμέτρων του) μεταξύ server και
+    clients. Για μεγάλα μοντέλα ή αργές συνδέσεις, αυτό αποτελεί
+    σημαντικό περιορισμό \cite{Konecny2016}.
+
+    \item \textbf{Αξιοπιστία clients:} Clients μπορεί να αποσυνδεθούν
+    κατά τη διάρκεια ενός γύρου (stragglers) ή να υποβάλουν ψευδείς
+    ενημερώσεις (Byzantine clients). Η παρούσα εργασία αντιμετωπίζει
+    την πρώτη κατηγορία μέσω του μηχανισμού κινήτρων
+    (Κεφάλαιο~\ref{ch:implementation}).
+\end{itemize}
+
+\subsection{Ιδιωτικότητα στο FL}
+\label{subsec:fl_privacy}
+
+Παρόλο που το FL δεν μεταδίδει ακατέργαστα δεδομένα, οι ενημερώσεις
+μοντέλου μπορούν υπό συνθήκες να αποκαλύψουν ευαίσθητες πληροφορίες
+μέσω \textit{gradient inversion attacks} \cite{Shokri2015}. Μέθοδοι
+όπως η Differential Privacy \cite{Abadi2016} και η ασφαλής συνάθροιση
+\cite{Bonawitz2017} αμβλύνουν αυτόν τον κίνδυνο, αν και βρίσκονται
+εκτός του άμεσου πεδίου της παρούσας εργασίας.

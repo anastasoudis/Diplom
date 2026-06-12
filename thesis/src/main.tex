@@ -1,0 +1,313 @@
+% ============================================================
+%  MASTER THESIS — Main LaTeX File
+%  Compiler: XeLaTeX  (run from thesis_latex/src/)
+%  Output:   ../build/
+%  Title: Σχεδιασμός και Υλοποίηση Συστημάτων Ομοσπονδιακής
+%         Μάθησης με Μηχανισμούς Κινήτρων για HAR σε AAL
+%  Author: Dimitris Anastasoudis
+%  Institution: DUTH — Department of Electrical & Computer Engineering
+% ============================================================
+
+\documentclass[12pt, a4paper, oneside]{report}
+
+% ── Encoding & Language ─────────────────────────────────────
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setmainlanguage{greek}
+\setotherlanguage{english}
+% Main font: TeX Gyre Termes (Times clone) for Latin
+% Greek font: Times New Roman with Script=Greek override (visually identical)
+\setmainfont{texgyretermes-regular.otf}[
+  BoldFont=texgyretermes-bold.otf,
+  ItalicFont=texgyretermes-italic.otf,
+  BoldItalicFont=texgyretermes-bolditalic.otf
+]
+\setsansfont{texgyreheros-regular.otf}[
+  BoldFont=texgyreheros-bold.otf,
+  ItalicFont=texgyreheros-italic.otf,
+  BoldItalicFont=texgyreheros-bolditalic.otf
+]
+\setmonofont{texgyrecursor-regular.otf}[
+  BoldFont=texgyrecursor-bold.otf,
+  ItalicFont=texgyrecursor-italic.otf,
+  BoldItalicFont=texgyrecursor-bolditalic.otf
+]
+\newfontfamily\greekfont{Times New Roman}[Script=Greek]
+\newfontfamily\greekfontsf{Arial}[Script=Greek]
+\newfontfamily\greekfonttt{Courier New}[Script=Greek]
+
+% ── Page Geometry ────────────────────────────────────────────
+\usepackage[
+    top=2.5cm, bottom=2.5cm,
+    left=3cm, right=2.5cm,
+    headheight=15pt
+]{geometry}
+
+% ── Math ─────────────────────────────────────────────────────
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+
+% ── Graphics & Figures ───────────────────────────────────────
+\usepackage{graphicx}
+\graphicspath{{../figures/}}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% ── Tables ───────────────────────────────────────────────────
+\usepackage{booktabs}
+% \usepackage{tabularx}   % install: sudo tlmgr install tabularx (when needed)
+\usepackage{array}
+% \usepackage{multirow}   % install: sudo tlmgr install multirow (when needed)
+
+% ── Source Code Listings ─────────────────────────────────────
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codeblue}{rgb}{0.0,0.0,0.8}
+\definecolor{codeback}{rgb}{0.97,0.97,0.97}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{codeblue}\bfseries,
+    commentstyle=\color{codegray}\itshape,
+    numberstyle=\tiny\color{codegray},
+    breaklines=true,
+    breakatwhitespace=true,
+    numbers=left,
+    numbersep=8pt,
+    frame=single,
+    backgroundcolor=\color{codeback},
+    tabsize=4,
+    showstringspaces=false,
+    captionpos=b
+}
+
+% ── Bibliography (numeric style) ─────────────────────────────
+\usepackage[
+    backend=biber,
+    style=numeric,
+    sorting=none,
+    maxbibnames=6,
+    minbibnames=1
+]{biblatex}
+\addbibresource{references.bib}
+
+% ── Hyperlinks ───────────────────────────────────────────────
+\usepackage[
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=blue,
+    urlcolor=blue,
+    pdfusetitle
+]{hyperref}
+
+% ── Headers & Footers ────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\thepage}
+\fancyhead[L]{\nouppercase{\leftmark}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headwidth}{\textwidth}
+% Chapter-opening pages: consistent with fancy (page number right, rule same width)
+\fancypagestyle{plain}{%
+    \fancyhf{}
+    \fancyhead[R]{\thepage}
+    \renewcommand{\headrulewidth}{0.4pt}
+    \renewcommand{\headwidth}{\textwidth}
+}
+
+% ── TikZ Diagrams ────────────────────────────────────────────
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, decorations.pathreplacing}
+
+% ── Typography & Layout ──────────────────────────────────────
+% multicol: for 2-column abbreviations list (available in basic install)
+\usepackage{multicol}
+
+% \raggedbottom: allow pages to end at different heights instead of
+% stretching content artificially. Prevents sections from being
+% "sucked down" to page bottom by \flushbottom glue.
+\raggedbottom
+
+% Reduce the large vertical gap that \chapter{} / \chapter*{} adds
+% above the chapter title. Default is 50pt; we use 20pt.
+% Also reduce post-title gap from 40pt to 20pt.
+% Uses internal LaTeX2e commands (safe — no extra package needed).
+\makeatletter
+\renewcommand{\@makechapterhead}[1]{%
+  \vspace*{20pt}%
+  {\parindent\z@ \raggedright \normalfont
+    \ifnum \c@secnumdepth >\m@ne
+      \huge\bfseries \@chapapp\space \thechapter
+      \par\nobreak \vskip 10pt
+    \fi
+    \interlinepenalty\@M
+    \Huge\bfseries #1\par\nobreak
+    \vskip 20pt}}
+\renewcommand{\@makeschapterhead}[1]{%
+  \vspace*{20pt}%
+  {\parindent\z@ \raggedright
+    \normalfont \interlinepenalty\@M
+    \Huge\bfseries #1\par\nobreak
+    \vskip 20pt}}
+\makeatother
+
+% \needspace{N}: ensures at least N of vertical space remains on the
+% current page; if not, forces a page break. Implemented without the
+% needspace package (unavailable in this TeX Live basic install).
+\makeatletter
+\newcommand{\needspace}[1]{%
+  \begingroup
+    \setlength{\dimen@}{#1}%
+    \vskip\z@\@plus\dimen@
+    \penalty -100\relax
+    \vskip\z@\@plus -\dimen@
+    \vskip\dimen@
+    \penalty 9999\relax
+    \vskip -\dimen@
+    \vskip\z@skip
+  \endgroup}
+\makeatother
+
+% Redefine \section and \subsection to guard against orphaned headers:
+% ensure at least 4 lines of following text fit on the same page.
+\let\oldsection\section
+\renewcommand{\section}{\needspace{4\baselineskip}\oldsection}
+\let\oldsubsection\subsection
+\renewcommand{\subsection}{\needspace{3\baselineskip}\oldsubsection}
+
+% ── Miscellaneous ────────────────────────────────────────────
+% microtype: limited XeLaTeX support — load with no options to avoid warnings
+\usepackage{microtype}
+\usepackage{setspace}
+\onehalfspacing
+% parskip: use explicit values instead of package to avoid heading-spacing conflicts
+\setlength{\parindent}{1.5em}
+\setlength{\parskip}{0.5\baselineskip}
+\usepackage{enumitem}
+\usepackage{csquotes}   % required by biblatex with polyglossia
+
+% ── Line-breaking tolerance (fixes Overfull \hbox from missing Greek hyphenation)
+% Without hyphen-greek installed, LaTeX cannot break Greek words → lines overflow.
+% These settings allow more inter-word stretch before declaring an overfull box.
+\tolerance=2000
+\emergencystretch=2em
+\hbadness=2000
+
+% ── Widow / Orphan prevention ────────────────────────────────
+% Penalties: 10000 = effectively forbidden.
+% Widow  = last line of paragraph stranded at top of page.
+% Orphan = first line of paragraph stranded at bottom of page.
+\widowpenalty=10000
+\clubpenalty=10000
+\displaywidowpenalty=10000
+
+% ── Theorem-like Environments ────────────────────────────────
+\newtheorem{definition}{Ορισμός}[chapter]
+\newtheorem{theorem}{Θεώρημα}[chapter]
+\newtheorem{proposition}{Πρόταση}[chapter]
+\newtheorem{lemma}{Λήμμα}[chapter]
+
+% ────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title Page ───────────────────────────────────────────────
+\begin{titlepage}
+    \centering
+    \vspace*{0.8cm}
+
+    % ── Logo ─────────────────────────────────────────────────
+    \includegraphics[width=0.82\textwidth]{logo_mikro_tmimatos_hmmh.png}\\[2cm]
+
+    % ── Title ────────────────────────────────────────────────
+    \rule{\linewidth}{0.6mm}\\[0.6cm]
+    {\LARGE \bfseries
+        Σχεδιασμός και Υλοποίηση Συστημάτων
+        Ομοσπονδιακής Μάθησης (Federated Learning)
+        με Μηχανισμούς Κινήτρων για την
+        Αναγνώριση Δραστηριότητας σε Περιβάλλοντα
+        Υποβοηθούμενης Διαβίωσης (AAL)
+    }\\[0.6cm]
+    \rule{\linewidth}{0.6mm}\\[1.8cm]
+
+    % ── Thesis type + Author ─────────────────────────────────
+    {\Large\bfseries Διπλωματική Εργασία}\\[0.35cm]
+    {\large\itshape Ενδιάμεση Αναφορά Προόδου}\\[0.1cm]
+    {\normalsize (έως τον Μηχανισμό Κινήτρων — Κεφάλαιο~4)}\\[0.8cm]
+    {\large Δημήτριος Αναστασούδης}\\[0.25cm]
+    {\normalsize ΑΕΜ: 58085}\\
+
+    \vfill
+
+    % ── Supervisor ───────────────────────────────────────────
+    {\large Επιβλέπων:}\\[0.3cm]
+    {\large Παύλος Εφραιμίδης}\\[0.15cm]
+    {\normalsize Algorithms \& Privacy Research Unit (Euclid)}\\[1.2cm]
+
+    {\large Ξάνθη, \the\year}
+\end{titlepage}
+
+% ── Front Matter ─────────────────────────────────────────────
+% Single arabic numbering throughout — title page is page 1 (no number shown),
+% abstract starts at page 2, TOC and chapters continue sequentially.
+\pagenumbering{arabic}
+\setcounter{page}{2}
+
+% Acknowledgements — ΠΡΟΣΩΡΙΝΑ ΕΚΤΟΣ (το κείμενο διατηρείται στο
+% chapters/ch00_frontmatter/acknowledgements.tex — ξε-comment όταν χρειαστεί):
+% \chapter*{Ευχαριστίες}
+% \addcontentsline{toc}{chapter}{Ευχαριστίες}
+% \input{chapters/ch00_frontmatter/acknowledgements}
+
+% Abstract (Greek)
+\chapter*{Περίληψη}
+\addcontentsline{toc}{chapter}{Περίληψη}
+\input{chapters/ch00_frontmatter/abstract_gr}
+
+% Abstract (English)
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\input{chapters/ch00_frontmatter/abstract_en}
+
+% Table of Contents
+\tableofcontents
+
+% List of Figures — added to TOC manually (listoffigures doesn't do this by default)
+\addcontentsline{toc}{chapter}{\listfigurename}
+\listoffigures
+
+% List of Tables — same
+\addcontentsline{toc}{chapter}{\listtablename}
+\listoftables
+
+% List of Abbreviations
+\chapter*{Κατάλογος Συντομογραφιών}
+\addcontentsline{toc}{chapter}{Κατάλογος Συντομογραφιών}
+\input{chapters/ch00_frontmatter/abbreviations}
+
+% ── Main Matter ──────────────────────────────────────────────
+% NOTE: \include already inserts \clearpage before and after its content.
+% Adding an explicit \clearpage before \include creates a blank page.
+\include{chapters/ch01_introduction/ch01_introduction}
+\include{chapters/ch02_background/ch02_background}
+\include{chapters/ch03_data_analysis/ch03_data_analysis}
+\include{chapters/ch04_implementation/ch04_implementation}
+% Κεφάλαια 5–7: παρουσιάζεται η ΔΟΜΗ (placeholders) — το περιεχόμενο ακολουθεί σε επόμενο στάδιο:
+\include{chapters/ch05_contribution/ch05_contribution}
+\include{chapters/ch06_experiments/ch06_experiments}
+\include{chapters/ch07_conclusion/ch07_conclusion}
+
+% ── Bibliography ─────────────────────────────────────────────
+\printbibliography[heading=bibintoc, title={Βιβλιογραφία}]
+
+% ── Appendices (εκκρεμούν σε επόμενο στάδιο) ──────────────────
+% \appendix
+% \include{chapters/appendices/appendix_a_code}
+% \include{chapters/appendices/appendix_b_results}
+
+\end{document}
