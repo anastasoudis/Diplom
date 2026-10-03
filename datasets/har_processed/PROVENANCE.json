@@ -1,0 +1,133 @@
+{
+  "dataset": "UCI HAR",
+  "pipeline": "ids εθελοντών όπως δίνονται, μέσος και τυπική απόκλιση από το train, z-score",
+  "created": "2026-09-29T09:44:14+00:00",
+  "command": "python -m implementation.dataset.export_processed",
+  "source_sha256": {
+    "train/X_train.txt": "9c1246099c8d5463",
+    "train/y_train.txt": "415b3357e2e2d5e7",
+    "train/subject_train.txt": "66e1e2fbe9b396fa",
+    "test/X_test.txt": "99035209add50d17",
+    "test/y_test.txt": "2a94cb53ca46b956",
+    "test/subject_test.txt": "63b8c577f4a85431",
+    "features.txt": "b384889885b1c868",
+    "activity_labels.txt": "f6e6b29270443826"
+  },
+  "output_sha256": {
+    "X_train.csv": "6ec4dc8e55b84e25",
+    "y_train.csv": "415b3357e2e2d5e7",
+    "X_test.csv": "03e8b6612041e9c1",
+    "y_test.csv": "2a94cb53ca46b956",
+    "client_ids_subject.csv": "721074a92717f931",
+    "subject_ids_test.csv": "63b8c577f4a85431",
+    "feature_names.csv": "8df939015acdfdeb"
+  },
+  "shapes": {
+    "X_train.csv": [
+      7352,
+      561
+    ],
+    "y_train.csv": [
+      7352
+    ],
+    "X_test.csv": [
+      2947,
+      561
+    ],
+    "y_test.csv": [
+      2947
+    ],
+    "client_ids_subject.csv": [
+      7352
+    ],
+    "subject_ids_test.csv": [
+      2947
+    ]
+  },
+  "meta": {
+    "dataset": "UCI HAR (Anguita et al. 2013)",
+    "n_train": 7352,
+    "n_test": 2947,
+    "n_features": 561,
+    "n_clients": 21,
+    "raw_value_range": [
+      -1.0,
+      1.0
+    ],
+    "normalize": true,
+    "normalize_stats_from": "train",
+    "class_counts_train": {
+      "WALKING": 1226,
+      "WALKING_UPSTAIRS": 1073,
+      "WALKING_DOWNSTAIRS": 986,
+      "SITTING": 1286,
+      "STANDING": 1374,
+      "LAYING": 1407
+    },
+    "class_counts_test": {
+      "WALKING": 496,
+      "WALKING_UPSTAIRS": 471,
+      "WALKING_DOWNSTAIRS": 420,
+      "SITTING": 491,
+      "STANDING": 532,
+      "LAYING": 537
+    },
+    "client_sizes": [
+      347,
+      341,
+      302,
+      325,
+      308,
+      281,
+      316,
+      323,
+      328,
+      366,
+      368,
+      360,
+      408,
+      321,
+      372,
+      409,
+      392,
+      376,
+      382,
+      344,
+      383
+    ],
+    "subject_ids_original": [
+      1,
+      3,
+      5,
+      6,
+      7,
+      8,
+      11,
+      14,
+      15,
+      16,
+      17,
+      19,
+      21,
+      22,
+      23,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+    ],
+    "test_subjects": [
+      2,
+      4,
+      9,
+      10,
+      12,
+      13,
+      18,
+      20,
+      24
+    ]
+  }
+}
