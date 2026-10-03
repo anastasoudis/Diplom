@@ -17,7 +17,7 @@ def local_only_args(argv=None):
     p.add_argument("--device", type=str, default="cpu")
     p.add_argument("--dropout", type=float, default=0.3)
     p.add_argument("--self_test_size", type=float, default=0.2,
-                   help="μέρος των δεδομένων κάθε client που κρατιέται για αξιολόγηση στο σκέλος Β")
+                   help="μέρος των δεδομένων κάθε client που κρατιέται για αξιολόγηση στη μέτρηση Β")
     p.add_argument("--out", type=str, default="results/local_only/har_local_ann.json")
     add_overwrite_flag(p)
     return p.parse_args(argv)
