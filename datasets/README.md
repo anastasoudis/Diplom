@@ -54,3 +54,12 @@ python -m implementation.dataset.export_processed
 
 γράφει στο `code/data/har_processed/` τα ίδια αρχεία byte προς byte. Ο κώδικας ελέγχει το sha256 κάθε αρχείου
 απέναντι στο `PROVENANCE.json` πριν διαβάσει οτιδήποτε.
+
+## Άδεια
+
+Το `har_processed/` είναι παράγωγο του αρχικού συνόλου, με τις αλλαγές που περιγράφονται παραπάνω, και διατίθεται με
+την ίδια άδεια, Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/). Όποιος το
+χρησιμοποιεί αναφέρει το αρχικό σύνολο, όπως ζητά το UCI.
+
+Reyes-Ortiz, J., Anguita, D., Ghio, A., Oneto, L., & Parra, X. (2013). Human Activity Recognition Using Smartphones
+[Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C54S4K
